@@ -25,13 +25,13 @@ algorithm:
 
 # ----------------------------- WANDB model Path ----------------------------- #
 model:
-  project: test-project
-  entity: alejandro-campoy
-  artifact_name: Eplus-PPO-training-example_2025-05-26_11-38
-  artifact_type: output
-  artifact_tag: v0
+  project: PPPO-greenhouse-Training
+  entity: sarazewail19-carnegie-mellon-university
+  artifact_name: ppo_greenhouse_model
+  artifact_type: model
+  artifact_tag: v0         # or "latest"
   artifact_path: Sinergym_output/
-  model_path: Sinergym_output/evaluation/best_model.zip
+  model_path: Sinergym_output/model.zip
 
 # ---------------------------------------------------------------------------- #
 #                       ENVIRONMENT OVERWRITE PARAMETERS                       #
@@ -53,10 +53,17 @@ env_params:
 wrappers_yaml_config: Sinergym_output/wrappers_config.pyyaml
 # This overwrite wrappers in wrappers_yaml_config if defined
 wrappers:
-  - sinergym.utils.wrappers:NormalizeObservation:
-      mean: Sinergym_output/evaluation/mean.txt
-      var: Sinergym_output/evaluation/var.txt
-      automatic_update: false
+  - sinergym.utils.wrappers:BuildStateWrapper: {}
+  - sinergym.utils.wrappers:LaggedObservationWrapper: {
+        lagged_variables: ['total_electricity_HVAC', 'indoor_temperature', 'outdoor_temperature'], 
+        n_lags: 3}
+  - sinergym.utils.wrappers:LoggerWrapper:
+      storage_class: sinergym.utils.logger:LoggerStorage
+  - sinergym.utils.wrappers:CSVLogger: {}
+  - sinergym.utils.wrappers:WandBLogger:
+      entity: sarazewial19-carnegie-mellon-university
+      project_name: PPPO-greenhouse-Training
+
 
 # -------------------------- GOOGLE CLOUD (OPTIONAL) ------------------------- #
 # cloud: 

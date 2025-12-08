@@ -143,8 +143,7 @@ def register_envs_from_yaml(yaml_path: str):
             env_kwargs_discrete = env_kwargs.copy()
 
             # Action mapping must be included in constants.
-            discrete_function = f'DEFAULT_{
-                conf["id_base"].upper()}_DISCRETE_FUNCTION'
+            discrete_function = f'DEFAULT_{conf["id_base"].upper()}_DISCRETE_FUNCTION'
             action_mapping = import_from_path(
                 f'sinergym.utils.constants:{discrete_function}'
             )

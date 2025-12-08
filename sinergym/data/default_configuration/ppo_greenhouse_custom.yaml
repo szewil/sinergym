@@ -1,0 +1,124 @@
+# ---------------------------------------------------------------------------- #
+#                        ID BASE FROM ENVIRONMNET NAMES                        #
+# ---------------------------------------------------------------------------- #
+id_base: 2zone
+
+# ---------------------------------------------------------------------------- #
+#                         BUILDING AND WEATHER SETTINGS                        #
+# ---------------------------------------------------------------------------- #
+building_file: 'greenhouse_triangle_2CoolLoop_Heater.epJSON'
+
+# A environment alternative for each weather key
+weather_specification:
+  weather_files:
+    - 'QAT_DA_Doha.404280_TMYx.2007-2021.epw'
+  keys:
+    - hot
+
+# ---------------------------------------------------------------------------- #
+#                         BUILDING EXTRA CONFIGURATION                         #
+# ---------------------------------------------------------------------------- #
+building_config: null
+
+
+# ---------------------------------------------------------------------------- #
+#                        WEATHER VARIABILITY (OPTIONAL)                        #
+# ---------------------------------------------------------------------------- #
+# Alternative stochastic environments if it is defined
+weather_variability:
+  Dry Bulb Temperature:
+    - 1.0 # sigma
+    - 0.0 # mu
+    - 24.0 # tau
+
+# ---------------------------------------------------------------------------- #
+#                          EPISODES FOLDER GENERATION                          #
+# ---------------------------------------------------------------------------- #
+max_ep_store: 3
+
+# ---------------------------------------------------------------------------- #
+#                             OBSERVATION VARIABLES                            #
+# ---------------------------------------------------------------------------- #
+
+# --------------- TIME VARIABLES (same name as EnergyPlus API) --------------- #
+time_variables:
+  - month
+  - day_of_month
+  - hour
+# More variables in Data Transfer API: https://energyplus.readthedocs.io/en/latest/datatransfer.html
+
+# ----------------------------- OUTPUT:VARIABLES ----------------------------- #
+variables:
+  Site Outdoor Air DryBulb Temperature:
+    variable_names: outdoor_temperature
+    keys: Environment
+  Site Outdoor Air Relative Humidity:
+    variable_names: outdoor_humidity
+    keys: Environment
+  Site Wind Speed:
+    variable_names: wind_speed
+    keys: Environment
+  Site Wind Direction:
+    variable_names: wind_direction
+    keys: Environment
+  Site Diffuse Solar Radiation Rate per Area:
+    variable_names: diffuse_solar_radiation
+    keys: Environment
+  Site Direct Solar Radiation Rate per Area:
+    variable_names: direct_solar_radiation
+    keys: Environment
+  Zone Air Temperature:
+    variable_names: indoor_temperature
+    keys: Greenhouse Zone Roof
+  Zone Air Relative Humidity:
+    variable_names: indoor_humidity
+    keys: Greenhouse Zone Roof
+  Environmental Impact Total CO2 Emissions Carbon Equivalent Mass:
+    variable_names: co2_emission
+    keys: site
+  Facility Total HVAC Electricity Demand Rate:
+    variable_names: total_energy
+    keys: whole building
+
+
+# ------------------------------- OUTPUT:METERS ------------------------------ #
+meters:
+  Electricity:HVAC: hvac_electricity
+
+# ---------------------------------------------------------------------------- #
+#                               ACTION VARIABLES                               #
+# ---------------------------------------------------------------------------- #
+
+# --------------------------- ACTUATORS TO CONTROL --------------------------- #
+actuators: {}
+  # Supply Fan:
+  #   variable_name: Fan Air Mass Flow Rate
+  #   element_type: Fan
+  #   value_type: Supply Fan
+  # Heater  Fan:
+  #   variable_name: Fan Air Mass Flow Rate
+  #   element_type: Fan
+  #   value_type: Heater Fan
+
+# ---------------------------------------------------------------------------- #
+#                   DYNAMIC CONTEXT CONFIGURABLE IN REAL-TIME                  #
+# ---------------------------------------------------------------------------- #
+context: {}
+
+# ---------------------------------------------------------------------------- #
+#                                 ACTIONS SPACE                                #
+# ---------------------------------------------------------------------------- #
+action_space: gym.spaces.Box(
+        low  = np.array([0, 0]),
+        high = np.array([12, 12]),
+        dtype=np.float32
+      )
+
+action_space_discrete: {}
+
+# ---------------------------------------------------------------------------- #
+#                                REWARD FUNCTION                               #
+# ---------------------------------------------------------------------------- #
+reward: sinergym.utils.rewards:ComfortGatedReward
+
+reward_kwargs: {}

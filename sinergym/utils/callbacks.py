@@ -265,3 +265,50 @@ class LoggerEvalCallback(EventCallback):
                     result[key].append(value)
 
         return result
+
+from stable_baselines3.common.callbacks import BaseCallback
+import numpy as np
+import torch
+from torch.nn.utils import parameters_to_vector
+
+class WeightDriftAndStats(BaseCallback):
+    def _on_training_start(self) -> None:
+        p = self.model.policy
+        vec = parameters_to_vector([pp.detach() for pp in p.parameters()]).cpu().numpy()
+        self.prev = vec
+        self.init = vec.copy()
+
+    def _on_rollout_end(self) -> None:
+        p = self.model.policy
+        vec = parameters_to_vector([pp.detach() for pp in p.parameters()]).cpu().numpy()
+
+        l2 = float(np.linalg.norm(vec))
+        drift_prev = float(np.linalg.norm(vec - self.prev))
+        drift_init = float(np.linalg.norm(vec - self.init))
+        cos_prev = float(np.dot(vec, self.prev) / (np.linalg.norm(vec)*np.linalg.norm(self.prev) + 1e-8))
+
+        self.logger.record("weights/l2", l2)
+        self.logger.record("weights/drift_since_prev", drift_prev)
+        self.logger.record("weights/drift_since_init", drift_init)
+        self.logger.record("weights/cos_to_prev", cos_prev)
+        self.prev = vec
+
+        # current LR
+        try:
+            lr = self.model.policy.optimizer.param_groups[0]["lr"]
+            self.logger.record("optimizer/current_lr", float(lr))
+        except Exception:
+            pass
+
+        # VecNormalize stats (if present)
+        try:
+            venv = self.model.get_vec_normalize_env()
+            if venv is not None and hasattr(venv, "obs_rms"):
+                self.logger.record("obs_rms/mean", float(np.mean(venv.obs_rms.mean)))
+                self.logger.record("obs_rms/var", float(np.mean(venv.obs_rms.var)))
+        except Exception:
+            pass
+
+    # ✅ required by BaseCallback
+    def _on_step(self) -> bool:
+        return True

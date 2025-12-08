@@ -73,39 +73,10 @@ evaluation:
 # ---------------------------------------------------------------------------- #
 # Yaml file with environment configuration (Optional)
 env_yaml_config: null
-# Environment deep update for parameters with dictionary type, it is used to overwrite the environment parameters default is True).
-env_deep_update: true
 # In order to overwrite some parameters of the environment, you can use the following
 env_params:
   seed: null
   reward: sinergym.utils.rewards:LinearReward
-  reward_kwargs: 
-    temperature_variables:
-      - air_temperature
-    range_comfort_winter: [18, 23]
-    range_comfort_summer: [22, 30]    
-    energy_weight: 0.5
-    lambda_energy: 0.00014
-    lambda_temperature: 0.2
-  weather_files: 'USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw'
-  building_file: 'greenhouse_triangle.epJSON'
-  variables:
-    Zone Mean Air Temperature:
-    - "Greenhouse Zone Roof"
-    - "Greenhouse Zone Main"
-    outdoor_temperature: ['Site Outdoor Air Drybulb Temperature', 'Environment']
-    air_humidity: ['Site Outdoor Air Relative Humidity', 'Environment']
-    air_temperature: ['Zone Mean Air Temperature', 'Greenhouse Zone Roof']
-    htg_setpoint: ['Zone Thermostat Heating Setpoint Temperature', 'Greenhouse Zone Roof']
-    clg_setpoint: ['Zone Thermostat Cooling Setpoint Temperature', 'Greenhouse Zone Roof']
-    schedule_cool_sp: ['Schedule Value', 'RoofSpace Base Cool SP']
-    thermo_cool_setpoint: ['Zone Thermostat Cooling Setpoint Temperature',
-                                'Greenhouse Zone Roof']
-  actuators:
-    Cooling_Setpoint_RL: ["Schedule:Constant", "Schedule Value", "ROOFSPACE BASE COOL SP"]
-    Heating_Setpoint_RL: ["Schedule:Constant", "Schedule Value", "ROOFSPACE BASE HEAT SP"]
-
-  action_space: "gym.spaces.Box(low=np.array([16.0, 24.0]), high=np.array([22.0, 32.0]), dtype=np.float32)"
 # ... other environment parameters
 
 

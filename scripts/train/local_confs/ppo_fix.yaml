@@ -1,0 +1,133 @@
+# ---------------------------------------------------------------------------- #
+#                                    BASICS                                    #
+# ---------------------------------------------------------------------------- #
+experiment_name:  Htr250000-Heating-Tstep12-seed123
+environment: Eplus-2zone-hot-continuous-stochastic-v1
+episodes: 20
+# timestep = 6
+
+# ---------------------------------------------------------------------------- #
+#                                 SB3 ALGORITHM                                #
+# ---------------------------------------------------------------------------- #
+algorithm:
+  name: stable_baselines3:PPO
+  log_interval: 1
+  parameters:
+    # BASELINE PPO CONFIG FOR HVAC (From Literature)
+    policy: MlpPolicy
+    learning_rate: 3e-4     
+    n_steps: 4096            
+    batch_size: 256
+    n_epochs: 8
+    
+    gamma: 0.97           # Discount factor: how much future rewards matter vs immediate ones (closer to 1 = long-term planning)
+    gae_lambda: 0.9     # GAE decay factor: balances bias vs variance in advantage estimation (lower = faster reaction, higher = smoother)
+    clip_range: 0.17      # PPO policy update limit: prevents drastic policy changes (stability vs learning speed)
+    ent_coef: 0.03        # Entropy bonus: encourages exploration; higher = more randomness in actions
+    vf_coef: 0.3         # Weight of value loss: scales how much the critic (value net) influences total loss
+    max_grad_norm: 0.5   # Gradient clipping: prevents exploding gradients (stability in training)
+    clip_range_vf: 0.1   # Clipping for value function updates: limits how fast value estimates can change
+    
+    normalize_advantage: true
+    use_sde: false
+
+# ---------------------------------------------------------------------------- #
+#                                  EVALUATION                                  #
+# ---------------------------------------------------------------------------- #
+evaluation:
+  eval_freq: 10
+  eval_length: 1
+
+# ---------------------------------------------------------------------------- #
+#                       ENVIRONMENT OVERWRITE PARAMETERS                       #
+# ---------------------------------------------------------------------------- #
+# Yaml file with environment configuration (Optional)
+env_yaml_config: null
+# In order to overwrite some parameters of the environment, you can use the following
+env_params:
+  seed: 123
+  reward: sinergym.utils.rewards:ComfortGatedReward
+  reward_kwargs: 
+    energy_variables: 
+      - total_electricity_HVAC
+    temperature_variables:
+      - indoor_temperature
+    range_comfort_winter: [18, 26]
+    range_comfort_summer: [18, 26]  
+    
+    # Two-stage temperature reward shape
+    M: 1.0
+    eta: 0.1           # was 0.2 → gentler edge slope → less actuator chatter
+    delta: 1.0         # was 1.0 → wider “flat” comfort core to stabilize near-band behavior
+    K: 3.0         # was 5.0 → farther saturation → stronger pull only when clearly off-band
+
+    window_steps: 2016     # 1 week with 5-min steps
+    lambda_dev: 0.04      # or 0.05 if you want stronger pressure
+
+  weather_files: 'QAT_DA_Doha.404280_TMYx.2007-2021.epw'
+  building_file: 'greenhouse_triangle_2StageCoolLoop_Heater.epJSON'
+  meters:
+    hvac_electricity: 'Electricity:HVAC'
+  variables:
+    total_electricity_HVAC: ['Facility Total HVAC Electricity Demand Rate','whole building']
+    outdoor_temperature: ['Site Outdoor Air Drybulb Temperature', 'Environment']
+    
+    indoor_temperature: ['Zone Mean Air Temperature', 'Greenhouse Zone Roof']
+    indoor_humidity: ['Site Outdoor Air Relative Humidity', 'Environment']
+
+    D_Cooler_Electricity_Rate: ["Evaporative Cooler Electricity Rate", "Evaporative Cooler"]
+    ID_Cooler_Electricity_Rate: ["Evaporative Cooler Electricity Rate", "Indirect Evaporative Cooler"]
+    CoolerFan_Electricity_Rate: ["Fan Electricity Rate", "Supply Fan"]
+    CoolerFan_Mass_Flow: ["Fan Air Mass Flow Rate", "Supply Fan"]
+
+    HeaterFan_Electricity_Rate: ["Fan Electricity Rate", "Heater Fan"]
+    HeaterCoil_Electricity_Rate: ["Heating Coil Electricity Rate", "Roof Heater Coil"]
+    HeaterFan_Mass_Flow: ["Fan Air Mass Flow Rate", "Heater Fan"]
+
+  actuators: 
+    FanFlow_C1: ["Fan", "Fan Air Mass Flow Rate", "Supply Fan"]
+    FanFlow_H1: ["Fan", "Fan Air Mass Flow Rate", "Heater Fan"]
+  
+  action_space: 
+    gym.spaces.Box(
+        low  = np.array([0, 0]),
+        high = np.array([12, 12]),
+        dtype=np.float32
+      )
+
+# ---------------------------------------------------------------------------- #
+#                              WRAPPERS DEFINITION                             #
+# ---------------------------------------------------------------------------- #
+# Yaml file with wrappers configuration (Optional)
+wrappers_yaml_config: null
+# This overwrite wrappers in wrappers_yaml_config if defined
+wrappers:
+  # - sinergym.utils.wrappers:NormalizeAction: {}
+  - sinergym.utils.wrappers:ModeBasedDiscreteHVAC:
+        levels: [0,  12]   # Your airflow levels
+
+  - sinergym.utils.wrappers:BuildStateWrapper: {}
+  - sinergym.utils.wrappers:LaggedObservationWrapper: {
+        lagged_variables: ['total_electricity_HVAC', 'indoor_temperature', 'outdoor_temperature'], 
+        n_lags: 3}
+
+  - sinergym.utils.wrappers:NormalizeObservation: {
+      automatic_update: true,
+      exclude_variables: ['sin_month', 'cos_month', 'sin_hour', 'cos_hour']}
+  # - sinergym.utils.wrappers:MinMaxNormWrapper: {}
+
+  - sinergym.utils.wrappers:LoggerWrapper:
+      storage_class: sinergym.utils.logger:LoggerStorage
+  - sinergym.utils.wrappers:CSVLogger: {}
+  - sinergym.utils.wrappers:WandBLogger:
+      entity: sarazewial19-carnegie-mellon-university
+      project_name: PPPO-greenhouse-Fixing
+
+# ---------------------------------------------------------------------------- #
+#                            GOOGLE CLOUD (OPTIONAL)                           #
+# ---------------------------------------------------------------------------- #
+cloud: 
+  remote_store: null # remote bucket name
+  auto_delete: null # Delete remote instance when finish experiment
+  # auto_delete:
+  #   group_name: group-example
