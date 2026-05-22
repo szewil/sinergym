@@ -113,15 +113,15 @@ try:
             model_path = f"./{conf['model']['model_path']}"
 
         # -------------------------- Google cloud model path ------------------------- #
-        if conf['model'].get('bucket_path'):
-            # Download from given bucket (gcloud configured with privileges)
-            client = gcloud.init_storage_client()
-            bucket_name = conf['model']['bucket_path'].split('/')[2]
-            model_path = (
-                f"{conf['model']['bucket_path'].split(bucket_name + '/')[-1]}"
-                )
-            gcloud.read_from_bucket(client, bucket_name, model_path)
-            model_path = f'./{model_path}'
+        # if conf['model'].get('bucket_path'):
+        #     # Download from given bucket (gcloud configured with privileges)
+        #     client = gcloud.init_storage_client()
+        #     bucket_name = conf['model']['bucket_path'].split('/')[2]
+        #     model_path = (
+        #         f"{conf['model']['bucket_path'].split(bucket_name + '/')[-1]}"
+        #         )
+        #     gcloud.read_from_bucket(client, bucket_name, model_path)
+        #     model_path = f'./{model_path}'
             
 
     # ---------------------------------------------------------------------------- #
@@ -326,6 +326,8 @@ try:
         callback=callback,
         log_interval=conf['algorithm']['log_interval'])
 
+
+
     # model.save(env.get_wrapper_attr('workspace_path') + '/model')
     if hasattr(eval_callback, 'best_model_path'):
         print(f"BEST MODEL FOUND AT: {eval_callback.best_model_path}")
@@ -341,23 +343,23 @@ try:
     # ---------------------------------------------------------------------------- #
     #                      Google Cloud Bucket Storage                             #
     # ---------------------------------------------------------------------------- #
-    if conf.get('cloud'):
-        if conf['cloud'].get('remote_store'):
-            # Initiate Google Cloud client
-            client = gcloud.init_storage_client()
-            # Send output to common Google Cloud resource
-            gcloud.upload_to_bucket(
-                client,
-                src_path=env.get_wrapper_attr('workspace_path'),
-                dest_bucket_name=conf['cloud']['remote_store'],
-                dest_path=experiment_name)
-        # ---------------------------------------------------------------------------- #
-        #                   Autodelete option if is a cloud resource                   #
-        # ---------------------------------------------------------------------------- #
-        if conf['cloud'].get('auto_delete'):
-            token = gcloud.get_service_account_token()
-            gcloud.delete_instance_MIG_from_container(
-                conf['cloud']['auto_delete']['group_name'], token)
+    # if conf.get('cloud'):
+    #     if conf['cloud'].get('remote_store'):
+    #         # Initiate Google Cloud client
+    #         client = gcloud.init_storage_client()
+    #         # Send output to common Google Cloud resource
+    #         gcloud.upload_to_bucket(
+    #             client,
+    #             src_path=env.get_wrapper_attr('workspace_path'),
+    #             dest_bucket_name=conf['cloud']['remote_store'],
+    #             dest_path=experiment_name)
+    #     # ---------------------------------------------------------------------------- #
+    #     #                   Autodelete option if is a cloud resource                   #
+    #     # ---------------------------------------------------------------------------- #
+    #     if conf['cloud'].get('auto_delete'):
+    #         token = gcloud.get_service_account_token()
+    #         gcloud.delete_instance_MIG_from_container(
+    #             conf['cloud']['auto_delete']['group_name'], token)
 
 # If there is some error in the code, delete remote container if exists
 # include KeyboardInterrupt

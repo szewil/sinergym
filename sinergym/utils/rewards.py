@@ -1,5 +1,6 @@
 """Implementation of reward functions."""
 
+
 from datetime import datetime
 from math import exp
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -11,7 +12,8 @@ import numpy as np
 
 class BaseReward(object):
 
-    logger = TerminalLogger().getLogger(name='REWARD', level=LOG_REWARD_LEVEL)
+    logger = TerminalLogger().getLogger(name='REWARD',
+                                        level=LOG_REWARD_LEVEL)
 
     def __init__(self):
         """
@@ -23,9 +25,11 @@ class BaseReward(object):
             env (Env): Gym environment.
         """
 
-    def __call__(self, obs_dict: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
+    def __call__(self, obs_dict: Dict[str, Any]
+                 ) -> Tuple[float, Dict[str, Any]]:
         """Method for calculating the reward function."""
-        raise NotImplementedError("Reward class must have a `__call__` method.")
+        raise NotImplementedError(
+            "Reward class must have a `__call__` method.")
 
 
 class LinearReward(BaseReward):
@@ -34,13 +38,13 @@ class LinearReward(BaseReward):
         self,
         temperature_variables: List[str],
         energy_variables: List[str],
-        range_comfort_winter: Tuple[float, float],
-        range_comfort_summer: Tuple[float, float],
+        range_comfort_winter: Tuple[int, int],
+        range_comfort_summer: Tuple[int, int],
         summer_start: Tuple[int, int] = (6, 1),
         summer_final: Tuple[int, int] = (9, 30),
         energy_weight: float = 0.5,
         lambda_energy: float = 1.0,
-        lambda_temperature: float = 1.0,
+        lambda_temperature: float = 1.0
     ):
         """
         Linear reward function.
@@ -53,8 +57,8 @@ class LinearReward(BaseReward):
         Args:
             temperature_variables (List[str]): Name(s) of the temperature variable(s).
             energy_variables (List[str]): Name(s) of the energy/power variable(s).
-            range_comfort_winter (Tuple[float,float]): Temperature comfort range for cold season. Depends on environment you are using.
-            range_comfort_summer (Tuple[float,float]): Temperature comfort range for hot season. Depends on environment you are using.
+            range_comfort_winter (Tuple[int,int]): Temperature comfort range for cold season. Depends on environment you are using.
+            range_comfort_summer (Tuple[int,int]): Temperature comfort range for hot season. Depends on environment you are using.
             summer_start (Tuple[int,int]): Summer session tuple with month and day start. Defaults to (6,1).
             summer_final (Tuple[int,int]): Summer session tuple with month and day end. defaults to (9,30).
             energy_weight (float, optional): Weight given to the energy term. Defaults to 0.5.
@@ -67,12 +71,10 @@ class LinearReward(BaseReward):
         # Basic validations
         if not (0 <= energy_weight <= 1):
             self.logger.error(
-                f'energy_weight must be between 0 and 1. Received: {energy_weight}'
-            )
+                f'energy_weight must be between 0 and 1. Received: {energy_weight}')
             raise ValueError
-        if not all(
-            isinstance(v, str) for v in temperature_variables + energy_variables
-        ):
+        if not all(isinstance(v, str)
+                   for v in temperature_variables + energy_variables):
             self.logger.error('All variable names must be strings.')
             raise TypeError
 
@@ -93,7 +95,8 @@ class LinearReward(BaseReward):
 
         self.logger.info('Reward function initialized.')
 
-    def __call__(self, obs_dict: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
+    def __call__(self, obs_dict: Dict[str, Any]
+                 ) -> Tuple[float, Dict[str, Any]]:
         """Calculate the reward function value based on observation data.
 
         Args:
@@ -123,12 +126,13 @@ class LinearReward(BaseReward):
             'comfort_penalty': self.comfort_penalty,
             'total_power_demand': self.total_energy,
             'total_temperature_violation': self.total_temp_violation,
-            'reward_weight': self.W_energy,
+            'reward_weight': self.W_energy
         }
 
         return reward, reward_terms
 
-    def _get_energy_consumed(self, obs_dict: Dict[str, Any]) -> List[float]:
+    def _get_energy_consumed(self, obs_dict: Dict[str,
+                                                  Any]) -> List[float]:
         """Calculate the energy consumed in the current observation.
 
         Args:
@@ -139,7 +143,8 @@ class LinearReward(BaseReward):
         """
         return [obs_dict[v] for v in self.energy_names]
 
-    def _get_temperature_violation(self, obs_dict: Dict[str, Any]) -> List[float]:
+    def _get_temperature_violation(
+            self, obs_dict: Dict[str, Any]) -> List[float]:
         """Calculate the temperature violation (ºC) in each observation's temperature variable.
 
         Returns:
@@ -148,20 +153,20 @@ class LinearReward(BaseReward):
 
         # Current datetime and summer period
         current_dt = datetime(
-            YEAR, int(obs_dict['month']), int(obs_dict['day_of_month'])
-        )
+            YEAR, int(
+                obs_dict['month']), int(
+                obs_dict['day_of_month']))
         summer_start_date = datetime(YEAR, *self.summer_start)
         summer_final_date = datetime(YEAR, *self.summer_final)
 
-        temp_range = (
-            self.range_comfort_summer
-            if summer_start_date <= current_dt <= summer_final_date
-            else self.range_comfort_winter
-        )
+        temp_range = self.range_comfort_summer if \
+            summer_start_date <= current_dt <= summer_final_date else \
+            self.range_comfort_winter
 
         temp_values = [obs_dict[v] for v in self.temp_names]
 
-        return [max(temp_range[0] - T, 0, T - temp_range[1]) for T in temp_values]
+        return [max(temp_range[0] - T, 0, T - temp_range[1])
+                for T in temp_values]
 
     def _get_reward(self, obs_dict) -> Tuple[float, ...]:
         """Compute the final reward value.
@@ -174,7 +179,8 @@ class LinearReward(BaseReward):
             Tuple[float, ...]: Total reward calculated and reward terms.
         """
         energy_term = self.lambda_energy * self.W_energy * self.energy_penalty
-        comfort_term = self.lambda_temp * (1 - self.W_energy) * self.comfort_penalty
+        comfort_term = self.lambda_temp * \
+            (1 - self.W_energy) * self.comfort_penalty
         reward = energy_term + comfort_term
         reward = obs_dict['indoor_temperature']
         return reward, energy_term, comfort_term
@@ -186,8 +192,8 @@ class EnergyCostLinearReward(LinearReward):
         self,
         temperature_variables: List[str],
         energy_variables: List[str],
-        range_comfort_winter: Tuple[float, float],
-        range_comfort_summer: Tuple[float, float],
+        range_comfort_winter: Tuple[int, int],
+        range_comfort_summer: Tuple[int, int],
         energy_cost_variables: List[str],
         summer_start: Tuple[int, int] = (6, 1),
         summer_final: Tuple[int, int] = (9, 30),
@@ -195,7 +201,7 @@ class EnergyCostLinearReward(LinearReward):
         temperature_weight: float = 0.4,
         lambda_energy: float = 1.0,
         lambda_temperature: float = 1.0,
-        lambda_energy_cost: float = 1.0,
+        lambda_energy_cost: float = 1.0
     ):
         """
         Linear reward function with the addition of the energy cost term.
@@ -208,15 +214,16 @@ class EnergyCostLinearReward(LinearReward):
         Args:
             temperature_variables (List[str]): Name(s) of the temperature variable(s).
             energy_variables (List[str]): Name(s) of the energy/power variable(s).
-            range_comfort_winter (Tuple[float,float]): Temperature comfort range for cold season. Depends on environment you are using.
-            range_comfort_summer (Tuple[float,float]): Temperature comfort range for hot season. Depends on environment you are using.
-            summer_start (Tuple[int,int]): Summer session tuple with month and day start. Defaults to (6,1).
+            range_comfort_winter (Tuple[int,int]): Temperature comfort range for cold season. Depends on environment you are using.
+            range_comfort_summer (Tuple[int,int]): Temperature comfort range for hot season. Depends on environment you are using.
+            summer_start (Tuple[int,int]): Summer s-sum(exp(violation)
+                    for violation in temp_violations if violation > 0)ession tuple with month and day start. Defaults to (6,1).
             summer_final (Tuple[int,int]): Summer session tuple with month and day end. defaults to (9,30).
             energy_weight (float, optional): Weight given to the energy term. Defaults to 0.4.
             temperature_weight (float, optional): Weight given to the temperature term. Defaults to 0.4.
             lambda_energy (float, optional): Constant for removing dimensions from power(1/W). Defaults to 1.0.
             lambda_temperature (float, optional): Constant for removing dimensions from temperature(1/C). Defaults to 1.0.
-            lambda_energy_cost (float, optional): Constant for removing dimensions from temperature(1/E). Defaults to 1.0.
+            lambda_energy_cost (flota, optional): Constant for removing dimensions from temperature(1/E). Defaults to 1.0.
         """
 
         super().__init__(
@@ -228,7 +235,7 @@ class EnergyCostLinearReward(LinearReward):
             summer_final,
             energy_weight,
             lambda_energy,
-            lambda_temperature,
+            lambda_temperature
         )
 
         self.energy_cost_names = energy_cost_variables
@@ -237,7 +244,8 @@ class EnergyCostLinearReward(LinearReward):
 
         self.logger.info('Reward function initialized.')
 
-    def __call__(self, obs_dict: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
+    def __call__(self, obs_dict: Dict[str, Any]
+                 ) -> Tuple[float, Dict[str, Any]]:
         """Calculate the reward function.
 
         Args:
@@ -275,12 +283,13 @@ class EnergyCostLinearReward(LinearReward):
             'energy_cost_penalty': self.energy_cost_penalty,
             'total_power_demand': self.total_energy,
             'total_temperature_violation': self.total_temp_violation,
-            'money_spent': self.total_energy_cost,
+            'money_spent': self.total_energy_cost
         }
 
         return reward, reward_terms
 
-    def _get_money_spent(self, obs_dict: Dict[str, Any]) -> List[float]:
+    def _get_money_spent(self, obs_dict: Dict[str,
+                                              Any]) -> List[float]:
         """Calculate the total money spent in the current observation.
 
         Args:
@@ -298,12 +307,10 @@ class EnergyCostLinearReward(LinearReward):
             Tuple[float, ...]: Total reward calculated, reward term for energy, reward term for comfort and reward term for energy cost.
         """
         energy_term = self.lambda_energy * self.W_energy * self.energy_penalty
-        comfort_term = self.lambda_temp * self.W_temperature * self.comfort_penalty
-        energy_cost_term = (
-            self.lambda_energy_cost
-            * (1 - self.W_energy - self.W_temperature)
-            * self.energy_cost_penalty
-        )
+        comfort_term = self.lambda_temp * \
+            self.W_temperature * self.comfort_penalty
+        energy_cost_term = self.lambda_energy_cost * \
+            (1 - self.W_energy - self.W_temperature) * self.energy_cost_penalty
 
         reward = energy_term + comfort_term + energy_cost_term
         return reward, energy_term, comfort_term, energy_cost_term
@@ -315,13 +322,13 @@ class ExpReward(LinearReward):
         self,
         temperature_variables: List[str],
         energy_variables: List[str],
-        range_comfort_winter: Tuple[float, float],
-        range_comfort_summer: Tuple[float, float],
+        range_comfort_winter: Tuple[int, int],
+        range_comfort_summer: Tuple[int, int],
         summer_start: Tuple[int, int] = (6, 1),
         summer_final: Tuple[int, int] = (9, 30),
         energy_weight: float = 0.5,
         lambda_energy: float = 1.0,
-        lambda_temperature: float = 1.0,
+        lambda_temperature: float = 1.0
     ):
         """
         Reward considering exponential absolute difference to temperature comfort.
@@ -332,8 +339,8 @@ class ExpReward(LinearReward):
         Args:
             temperature_variables (List[str]): Name(s) of the temperature variable(s).
             energy_variables (List[str]): Name(s) of the energy/power variable(s).
-            range_comfort_winter (Tuple[float,float]): Temperature comfort range for cold season. Depends on environment you are using.
-            range_comfort_summer (Tuple[float,float]): Temperature comfort range for hot season. Depends on environment you are using.
+            range_comfort_winter (Tuple[int,int]): Temperature comfort range for cold season. Depends on environment you are using.
+            range_comfort_summer (Tuple[int,int]): Temperature comfort range for hot season. Depends on environment you are using.
             summer_start (Tuple[int,int]): Summer session tuple with month and day start. Defaults to (6,1).
             summer_final (Tuple[int,int]): Summer session tuple with month and day end. defaults to (9,30).
             energy_weight (float, optional): Weight given to the energy term. Defaults to 0.5.
@@ -350,10 +357,11 @@ class ExpReward(LinearReward):
             summer_final,
             energy_weight,
             lambda_energy,
-            lambda_temperature,
+            lambda_temperature
         )
 
-    def __call__(self, obs_dict: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
+    def __call__(self, obs_dict: Dict[str, Any]
+                 ) -> Tuple[float, Dict[str, Any]]:
         """Calculate the reward function value based on observation data.
 
         Args:
@@ -372,9 +380,8 @@ class ExpReward(LinearReward):
         temp_violations = self._get_temperature_violation(obs_dict)
         self.total_temp_violation = sum(temp_violations)
         # Exponential Penalty
-        self.comfort_penalty = -sum(
-            exp(violation) for violation in temp_violations if violation > 0
-        )
+        self.comfort_penalty = -sum(exp(violation)
+                                    for violation in temp_violations if violation > 0)
 
         # Weighted sum of both terms
         reward, energy_term, comfort_term = self._get_reward()
@@ -386,7 +393,7 @@ class ExpReward(LinearReward):
             'comfort_penalty': self.comfort_penalty,
             'total_power_demand': self.total_energy,
             'total_temperature_violation': self.total_temp_violation,
-            'reward_weight': self.W_energy,
+            'reward_weight': self.W_energy
         }
 
         return reward, reward_terms
@@ -480,8 +487,8 @@ class HourlyLinearReward(LinearReward):
         self,
         temperature_variables: List[str],
         energy_variables: List[str],
-        range_comfort_winter: Tuple[float, float],
-        range_comfort_summer: Tuple[float, float],
+        range_comfort_winter: Tuple[int, int],
+        range_comfort_summer: Tuple[int, int],
         summer_start: Tuple[int, int] = (6, 1),
         summer_final: Tuple[int, int] = (9, 30),
         default_energy_weight: float = 0.5,
@@ -495,8 +502,8 @@ class HourlyLinearReward(LinearReward):
         Args:
             temperature_variables (List[str]]): Name(s) of the temperature variable(s).
             energy_variables (List[str]): Name(s) of the energy/power variable(s).
-            range_comfort_winter (Tuple[float,float]): Temperature comfort range for cold season. Depends on environment you are using.
-            range_comfort_summer (Tuple[float,float]): Temperature comfort range for hot season. Depends on environment you are using.
+            range_comfort_winter (Tuple[int,int]): Temperature comfort range for cold season. Depends on environment you are using.
+            range_comfort_summer (Tuple[int,int]): Temperature comfort range for hot season. Depends on environment you are using.
             summer_start (Tuple[int,int]): Summer session tuple with month and day start. Defaults to (6,1).
             summer_final (Tuple[int,int]): Summer session tuple with month and day end. defaults to (9,30).
             default_energy_weight (float, optional): Default weight given to the energy term when thermal comfort is considered. Defaults to 0.5.
@@ -514,14 +521,15 @@ class HourlyLinearReward(LinearReward):
             summer_final,
             default_energy_weight,
             lambda_energy,
-            lambda_temperature,
+            lambda_temperature
         )
 
         # Reward parameters
         self.range_comfort_hours = range_comfort_hours
         self.default_energy_weight = default_energy_weight
 
-    def __call__(self, obs_dict: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
+    def __call__(self, obs_dict: Dict[str, Any]
+                 ) -> Tuple[float, Dict[str, Any]]:
         """Calculate the reward function.
 
         Args:
@@ -541,13 +549,8 @@ class HourlyLinearReward(LinearReward):
         self.comfort_penalty = -self.total_temp_violation
 
         # Determine reward weight depending on the hour
-        self.W_energy = (
-            self.default_energy_weight
-            if self.range_comfort_hours[0]
-            <= obs_dict['hour']
-            <= self.range_comfort_hours[1]
-            else 1.0
-        )
+        self.W_energy = self.default_energy_weight if self.range_comfort_hours[
+            0] <= obs_dict['hour'] <= self.range_comfort_hours[1] else 1.0
 
         # Weighted sum of both terms
         reward, energy_term, comfort_term = self._get_reward()
@@ -559,7 +562,7 @@ class HourlyLinearReward(LinearReward):
             'comfort_penalty': self.comfort_penalty,
             'total_power_demand': self.total_energy,
             'total_temperature_violation': self.total_temp_violation,
-            'reward_weight': self.W_energy,
+            'reward_weight': self.W_energy
         }
 
         return reward, reward_terms
@@ -571,8 +574,8 @@ class NormalizedLinearReward(LinearReward):
         self,
         temperature_variables: List[str],
         energy_variables: List[str],
-        range_comfort_winter: Tuple[float, float],
-        range_comfort_summer: Tuple[float, float],
+        range_comfort_winter: Tuple[int, int],
+        range_comfort_summer: Tuple[int, int],
         summer_start: Tuple[int, int] = (6, 1),
         summer_final: Tuple[int, int] = (9, 30),
         energy_weight: float = 0.5,
@@ -587,8 +590,8 @@ class NormalizedLinearReward(LinearReward):
         Args:
             temperature_variables (List[str]]): Name(s) of the temperature variable(s).
             energy_variables (List[str]): Name(s) of the energy/power variable(s).
-            range_comfort_winter (Tuple[float,float]): Temperature comfort range for cold season. Depends on environment you are using.
-            range_comfort_summer (Tuple[float,float]): Temperature comfort range for hot season. Depends on environment you are using.
+            range_comfort_winter (Tuple[int,int]): Temperature comfort range for cold season. Depends on environment you are using.
+            range_comfort_summer (Tuple[int,int]): Temperature comfort range for hot season. Depends on environment you are using.
             summer_start (Tuple[int,int]): Summer session tuple with month and day start. Defaults to (6,1).
             summer_final (Tuple[int,int]): Summer session tuple with month and day end. defaults to (9,30).
             energy_weight (float, optional): Default weight given to the energy term when thermal comfort is considered. Defaults to 0.5.
@@ -603,7 +606,7 @@ class NormalizedLinearReward(LinearReward):
             range_comfort_summer,
             summer_start,
             summer_final,
-            energy_weight,
+            energy_weight
         )
 
         # Reward parameters
@@ -611,26 +614,22 @@ class NormalizedLinearReward(LinearReward):
         self.max_comfort_penalty = max_comfort_penalty
 
     def _get_reward(self) -> Tuple[float, ...]:
-        """It calculates reward value using energy consumption and grades of temperature out of comfort range. Applying normalization
+        """It calculates reward value using energy consumption and grades of temperature out of comfort range. Aplying normalization
 
         Returns:
             Tuple[float, ...]: total reward calculated, reward term for energy and reward term for comfort.
         """
         # Update max energy and comfort
-        self.max_energy_penalty = max(self.max_energy_penalty, self.energy_penalty)
-        self.max_comfort_penalty = max(self.max_comfort_penalty, self.comfort_penalty)
+        self.max_energy_penalty = max(
+            self.max_energy_penalty, self.energy_penalty)
+        self.max_comfort_penalty = max(
+            self.max_comfort_penalty, self.comfort_penalty)
 
         # Calculate normalization
-        energy_norm = (
-            self.energy_penalty / self.max_energy_penalty
-            if self.max_energy_penalty
-            else 0
-        )
-        comfort_norm = (
-            self.comfort_penalty / self.max_comfort_penalty
-            if self.max_comfort_penalty
-            else 0
-        )
+        energy_norm = self.energy_penalty / \
+            self.max_energy_penalty if self.max_energy_penalty else 0
+        comfort_norm = self.comfort_penalty / \
+            self.max_comfort_penalty if self.max_comfort_penalty else 0
 
         # Calculate reward terms with norm values
         energy_term = self.W_energy * energy_norm
@@ -812,7 +811,7 @@ class MultiZoneReward(BaseReward):
         comfort_threshold: float = 0.5,
         energy_weight: float = 0.5,
         lambda_energy: float = 1.0,
-        lambda_temperature: float = 1.0,
+        lambda_temperature: float = 1.0
     ):
         """
         A linear reward function for environments with different comfort ranges in each zone. Instead of having
@@ -847,7 +846,8 @@ class MultiZoneReward(BaseReward):
 
         self.logger.info('Reward function initialized.')
 
-    def __call__(self, obs_dict: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
+    def __call__(self, obs_dict: Dict[str, Any]
+                 ) -> Tuple[float, Dict[str, Any]]:
         """Calculate the reward function value based on observation data.
 
         Args:
@@ -878,12 +878,13 @@ class MultiZoneReward(BaseReward):
             'total_power_demand': self.total_energy,
             'total_temperature_violation': self.total_temp_violation,
             'reward_weight': self.W_energy,
-            'comfort_threshold': self.comfort_threshold,
+            'comfort_threshold': self.comfort_threshold
         }
 
         return reward, reward_terms
 
-    def _get_energy_consumed(self, obs_dict: Dict[str, Any]) -> List[float]:
+    def _get_energy_consumed(self, obs_dict: Dict[str,
+                                                  Any]) -> List[float]:
         """Calculate the energy consumed in the current observation.
 
         Args:
@@ -894,7 +895,8 @@ class MultiZoneReward(BaseReward):
         """
         return [obs_dict[v] for v in self.energy_names]
 
-    def _get_temperature_violation(self, obs_dict: Dict[str, Any]) -> List[float]:
+    def _get_temperature_violation(
+            self, obs_dict: Dict[str, Any]) -> List[float]:
         """Calculate the total temperature violation (ºC) in the current observation.
 
         Returns:
@@ -904,18 +906,16 @@ class MultiZoneReward(BaseReward):
         self._get_comfort_ranges(obs_dict)
 
         temp_violations = [
-            (
-                max(0.0, min(abs(T - comfort_range[0]), abs(T - comfort_range[1])))
-                if T < comfort_range[0] or T > comfort_range[1]
-                else 0.0
-            )
+            max(0, min(abs(T - comfort_range[0]), abs(T - comfort_range[1])))
+            if T < comfort_range[0] or T > comfort_range[1] else 0
             for temp_var, comfort_range in self.comfort_ranges.items()
             if (T := obs_dict[temp_var])
         ]
 
         return temp_violations
 
-    def _get_comfort_ranges(self, obs_dict: Dict[str, Any]):
+    def _get_comfort_ranges(
+            self, obs_dict: Dict[str, Any]):
         """Calculate the comfort range for each zone in the current observation.
 
         Returns:
@@ -923,10 +923,7 @@ class MultiZoneReward(BaseReward):
         """
         # Calculate current comfort range for each zone
         self.comfort_ranges = {
-            temp_var: (
-                setpoint - self.comfort_threshold,
-                setpoint + self.comfort_threshold,
-            )
+            temp_var: (setpoint - self.comfort_threshold, setpoint + self.comfort_threshold)
             for temp_var, setpoint_var in self.comfort_configuration.items()
             if (setpoint := obs_dict[setpoint_var]) is not None
         }
@@ -942,7 +939,8 @@ class MultiZoneReward(BaseReward):
             Tuple[float, ...]: Total reward calculated and reward terms.
         """
         energy_term = self.lambda_energy * self.W_energy * self.energy_penalty
-        comfort_term = self.lambda_temp * (1 - self.W_energy) * self.comfort_penalty
+        comfort_term = self.lambda_temp * \
+            (1 - self.W_energy) * self.comfort_penalty
         reward = energy_term + comfort_term
         return reward, energy_term, comfort_term
 
@@ -1189,7 +1187,7 @@ class ComfortGatedReward(BaseReward):
         # ---- Adaptive energy normalization (doc Sec. 2.2–2.5) ----
         alpha: float = 0.02,
         k: float = 2.0,
-        difficulty_bins: Tuple[float, ...] = (0.0, 2.0, 5.0, 10.0),
+        difficulty_bins: Tuple[float, ...] = (0.0, 1.0, 2.0, 3.0, 4.0, 5.0),
         epsilon: float = 1e-9,
         gate_theta: float = 0.0,
         gate_k: float = 4.0,
@@ -1306,12 +1304,13 @@ class ComfortGatedReward(BaseReward):
 
     # ---------------- Difficulty and bins ----------------
 
+    # changed from Tout to Tau 
     @staticmethod
-    def _difficulty(Tout: float, tau_min: float, tau_max: float) -> float:
-        if Tout < tau_min:
-            return tau_min - Tout
-        if Tout > tau_max:
-            return Tout - tau_max
+    def _difficulty(Tout: float, Tin: float, tau_min: float, tau_max: float) -> float:
+        if Tin < tau_min:
+            return tau_min - Tin
+        if Tin > tau_max:
+            return Tin - tau_max
         return 0.0
 
     def _bin_index(self, d: float) -> int:
@@ -1360,6 +1359,8 @@ class ComfortGatedReward(BaseReward):
 
         # Mildness weight (doc Eq. 7)
         w_mild = 1.0 / (1.0 + (d / self.c) ** self.p)
+        # !!!!!REMOVEE!!!!!!!!!!!1
+        w_mild = 1.0
         return w_mild * r_raw
 
     # ---------------- Main API ----------------
@@ -1380,8 +1381,11 @@ class ComfortGatedReward(BaseReward):
         Tout = float(obs_dict.get('outdoor_temperature',
                        obs_dict.get('outdoor_temp',
                        obs_dict.get('Tout', (tau_min + tau_max) / 2.0))))
-        d = self._difficulty(Tout, tau_min, tau_max)
+        # REMOVE INDOOR TEMP
+        indoor_temp = float(obs_dict['indoor_temperature'])
+        d = self._difficulty(Tout, indoor_temp , tau_min, tau_max)
         bin_idx = self._bin_index(d)
+        
 
         # Aggregate energy/power across listed variables
         E_t = float(np.sum([float(obs_dict[n]) for n in self.energy_names])) if self.energy_names else 0.0
@@ -1393,12 +1397,14 @@ class ComfortGatedReward(BaseReward):
         # w_comfort = (1.0 + r_temp) / 2.0              # ∈ [0,1]
         x = self.gate_k * (r_temp - self.gate_theta)
         w_comfort = float(1.0 / (1.0 + np.exp(-x))) 
-        # R = r_temp + self.lambda_energy * w_comfort * r_energy
+        #REMOVE
+        # R =  r_energy
         R = r_temp
-        R = float(np.clip(R, -1.0, 1.0))              # safety clip
+        #R = r_temp + self.lambda_energy * w_comfort * r_energy
+        # R = float(np.clip(R, -1.0, 1.0))              # safety clip
         
         # ---------------- SUMMARY PENALTY BLOCK ----------------
-        indoor_temp = float(obs_dict['indoor_temperature'])
+        
 
         # compute overcool and overheat degrees
         overcool = max(0.0, tau_min - indoor_temp)
@@ -1433,30 +1439,13 @@ class ComfortGatedReward(BaseReward):
             'a': a,
             'b': b,
             'E_t_total': E_t,
-        }
-        #### DEBUG ####
-        # DEBUG: collect full trace
-        debug_trace = {
-            "step": obs_dict.get("timestep", "N/A"),
-            "indoor_temp": float(obs_dict["indoor_temperature"]),
-            "outdoor_temp": Tout,
-            "E_t": E_t,
-            "r_temp_raw": r_temp_raw,
-            "r_temp": r_temp,
-            "difficulty_d": d,
-            "bin_idx": bin_idx,
-            "mu_bin": self.mu_bins[bin_idx],
-            "sigma_bin": self.sigma_bins[bin_idx],
-            "r_raw": r_energy / w_mild if w_mild > 1e-6 else None,
-            "w_mild": w_mild ,          # <-- ADD THIS
-            "w_comfort": w_comfort,
-            "r_energy_final": r_energy,
-            "lambda_energy": self.lambda_energy,
-            "final_reward": R,
+            'mu_bins': self.mu_bins[bin_idx], 
+            'var_bins': self.var_bins[bin_idx],
+            'sigma_bins': self.sigma_bins[bin_idx],
         }
         # SAVE to CSV after each step
-        with open("trace_debug_lamOne.csv", "a") as f:
-            f.write(str(debug_trace) + "\n")
+        # with open("trace_debug_lamOne.csv", "a") as f:
+        #     f.write(str(debug_trace) + "\n")
         return R, terms
 
 class L1Reward(BaseReward):
@@ -1523,233 +1512,234 @@ class L1Reward(BaseReward):
 
         return R, terms
 
-class ConvexMixtureReward(BaseReward):
-    """
-    Convex Mixture (Formulation A):
-        R_t = w * r_temp + (1 - w) * r_energy
+# class ConvexMixtureReward(BaseReward):
+#     """
+#     Convex Mixture (Formulation A):
+#         R_t = w * r_temp + (1 - w) * r_energy
 
-    r_temp  : two-stage, saturating piecewise reward in [-M, M], then normalized to [-1,1]
-    r_energy: adaptive per-difficulty-bin (EMA μ/σ, ±kσ) → [-1,1], scaled by mildness
-    """
+#     r_temp  : two-stage, saturating piecewise reward in [-M, M], then normalized to [-1,1]
+#     r_energy: adaptive per-difficulty-bin (EMA μ/σ, ±kσ) → [-1,1], scaled by mildness
+#     """
 
-    def __init__(
-        self,
-        temperature_variables: List[str],
-        energy_variables: List[str],
-        range_comfort_winter: Tuple[float, float],
-        range_comfort_summer: Tuple[float, float],
-        summer_start: Tuple[int, int] = (6, 1),
-        summer_final: Tuple[int, int] = (9, 30),
-        # --- Temperature reward params ---
-        M: float = 1.0,
-        eta: float = 0.2,
-        delta: float = 2.0,   # inner comfort margin Δ
-        K: float = 5.0,       # outside saturation half-width
-        # --- Mixture weight ---
-        w: float = 0.7,       # 70% comfort, 30% energy (example)
-        # --- Mildness (for energy) ---
-        c: float = 10.0,
-        p: float = 2.0,
-        # --- Adaptive energy normalization ---
-        alpha: float = 0.02,          # EMA smoothing
-        k: float = 2.0,               # ±kσ tolerance
-        difficulty_bins: Tuple[float, ...] = (0.0, 2.0, 5.0, 10.0),
-        epsilon: float = 1e-9,
-        energy_weight = 1.0,
-        lambda_temperature = 0.1,
-        lambda_energy = 0.1,
-    ):
-        super().__init__()
+#     def __init__(
+#         self,
+#         temperature_variables: List[str],
+#         energy_variables: List[str],
+#         range_comfort_winter: Tuple[float, float],
+#         range_comfort_summer: Tuple[float, float],
+#         summer_start: Tuple[int, int] = (6, 1),
+#         summer_final: Tuple[int, int] = (9, 30),
+#         # --- Temperature reward params ---
+#         M: float = 1.0,
+#         eta: float = 0.2,
+#         delta: float = 2.0,   # inner comfort margin Δ
+#         K: float = 5.0,       # outside saturation half-width
+#         # --- Mixture weight ---
+#         w: float = 0.7,       # 70% comfort, 30% energy (example)
+#         # --- Mildness (for energy) ---
+#         c: float = 10.0,
+#         p: float = 2.0,
+#         # --- Adaptive energy normalization ---
+#         alpha: float = 0.02,          # EMA smoothing
+#         k: float = 2.0,               # ±kσ tolerance
+#         difficulty_bins: Tuple[float, ...] = (0.0, 2.0, 5.0, 10.0),
+#         epsilon: float = 1e-9,
+#         energy_weight = 1.0,
+#         lambda_temperature = 0.1,
+#         lambda_energy = 0.1,
+#     ):
+#         super().__init__()
 
-        # Store variables/comfort bands/season
-        self.temp_names = list(temperature_variables)
-        self.energy_names = list(energy_variables)
-        self.range_comfort_winter = tuple(range_comfort_winter)
-        self.range_comfort_summer = tuple(range_comfort_summer)
-        self.summer_start = date(1, int(summer_start[0]), int(summer_start[1])
-                                 )
-        self.summer_final = date(1, int(summer_final[0]), int(summer_final[1])
-                                 )
+#         # Store variables/comfort bands/season
+#         self.temp_names = list(temperature_variables)
+#         self.energy_names = list(energy_variables)
+#         self.range_comfort_winter = tuple(range_comfort_winter)
+#         self.range_comfort_summer = tuple(range_comfort_summer)
+#         self.summer_start = date(1, int(summer_start[0]), int(summer_start[1])
+#                                  )
+#         self.summer_final = date(1, int(summer_final[0]), int(summer_final[1])
+#                                  )
 
-        # Validate mixture weight
-        if not (0.0 <= w <= 1.0):
-            raise ValueError("w must be in [0,1]")
-        self.w = float(w)
+#         # Validate mixture weight
+#         if not (0.0 <= w <= 1.0):
+#             raise ValueError("w must be in [0,1]")
+#         self.w = float(w)
 
-        # Validate & store temp reward params
-        if not (M > 0 and delta > 0 and K > 0):
-            raise ValueError("M, delta and K must be > 0")
-        if not (0.0 < eta < 1.0):
-            raise ValueError("eta must be in (0,1)")
+#         # Validate & store temp reward params
+#         if not (M > 0 and delta > 0 and K > 0):
+#             raise ValueError("M, delta and K must be > 0")
+#         if not (0.0 < eta < 1.0):
+#             raise ValueError("eta must be in (0,1)")
 
-        self.M = float(M)
-        self.eta = float(eta)
-        self.delta = float(delta)
-        self.K = float(K)
+#         self.M = float(M)
+#         self.eta = float(eta)
+#         self.delta = float(delta)
+#         self.K = float(K)
 
-        # Precompute slopes and inner bands
-        self.s_L = (self.eta * self.M) / self.delta
-        self.s_R = (self.eta * self.M) / self.delta
-        self.S   = (self.M * (2.0 - self.eta)) / self.K
+#         # Precompute slopes and inner bands
+#         self.s_L = (self.eta * self.M) / self.delta
+#         self.s_R = (self.eta * self.M) / self.delta
+#         self.S   = (self.M * (2.0 - self.eta)) / self.K
 
-        self.a_summer = self.range_comfort_summer[0] + self.delta
-        self.b_summer = self.range_comfort_summer[1] - self.delta
-        self.a_winter = self.range_comfort_winter[0] + self.delta
-        self.b_winter = self.range_comfort_winter[1] - self.delta
+#         self.a_summer = self.range_comfort_summer[0] + self.delta
+#         self.b_summer = self.range_comfort_summer[1] - self.delta
+#         self.a_winter = self.range_comfort_winter[0] + self.delta
+#         self.b_winter = self.range_comfort_winter[1] - self.delta
 
-        # Mildness (for energy)
-        if c <= 0 or p <= 0:
-            raise ValueError("c and p must be > 0")
-        self.c = float(c)
-        self.p = float(p)
+#         # Mildness (for energy)
+#         if c <= 0 or p <= 0:
+#             raise ValueError("c and p must be > 0")
+#         self.c = float(c)
+#         self.p = float(p)
 
-        # Adaptive energy params
-        if alpha <= 0 or alpha >= 1:
-            raise ValueError("alpha must be in (0,1)")
-        if k <= 0:
-            raise ValueError("k must be > 0")
-        self.alpha = float(alpha)
-        self.k = float(k)
-        self.eps = float(epsilon)
+#         # Adaptive energy params
+#         if alpha <= 0 or alpha >= 1:
+#             raise ValueError("alpha must be in (0,1)")
+#         if k <= 0:
+#             raise ValueError("k must be > 0")
+#         self.alpha = float(alpha)
+#         self.k = float(k)
+#         self.eps = float(epsilon)
 
-        # Difficulty bins (ensure sorted and starts at 0)
-        edges = sorted(difficulty_bins)
-        if edges[0] != 0.0:
-            edges = [0.0] + edges
-        self.bin_edges = tuple(edges)
-        self.num_bins = len(self.bin_edges)
+#         # Difficulty bins (ensure sorted and starts at 0)
+#         edges = sorted(difficulty_bins)
+#         if edges[0] != 0.0:
+#             edges = [0.0] + edges
+#         self.bin_edges = tuple(edges)
+#         self.num_bins = len(self.bin_edges)
 
-        # Per-bin EMA: μ, variance (EMA), σ
-        self.mu_bins    = [0.0] * self.num_bins
-        self.var_bins   = [0.0] * self.num_bins
-        self.sigma_bins = [0.0] * self.num_bins
-        self._bin_init  = [False] * self.num_bins  # lazy init
+#         # Per-bin EMA: μ, variance (EMA), σ
+#         self.mu_bins    = [0.0] * self.num_bins
+#         self.var_bins   = [0.0] * self.num_bins
+#         self.sigma_bins = [0.0] * self.num_bins
+#         self._bin_init  = [False] * self.num_bins  # lazy init
 
-    # ---------- helpers: season & band ----------
-    def _is_summer(self, obs: Dict[str, Any]) -> bool:
-        d = date(1, int(obs['month']), int(obs['day_of_month']))
-        return self.summer_start <= d <= self.summer_final
+#     # ---------- helpers: season & band ----------
+#     def _is_summer(self, obs: Dict[str, Any]) -> bool:
+#         d = date(1, int(obs['month']), int(obs['day_of_month']))
+#         return self.summer_start <= d <= self.summer_final
 
-    def _comfort_band(self, is_summer: bool) -> Tuple[float, float, float, float]:
-        if is_summer:
-            return (self.range_comfort_summer[0], self.range_comfort_summer[1],
-                    self.a_summer, self.b_summer)
-        else:
-            return (self.range_comfort_winter[0], self.range_comfort_winter[1],
-                    self.a_winter, self.b_winter)
+#     def _comfort_band(self, is_summer: bool) -> Tuple[float, float, float, float]:
+#         if is_summer:
+#             return (self.range_comfort_summer[0], self.range_comfort_summer[1],
+#                     self.a_summer, self.b_summer)
+#         else:
+#             return (self.range_comfort_winter[0], self.range_comfort_winter[1],
+#                     self.a_winter, self.b_winter)
 
-    # ---------- r_temp: two-stage, saturating ----------
-    def _r_temp_single(self, tau: float, tau_min: float, tau_max: float, a: float, b: float) -> float:
-        M, S, sL, sR, K = self.M, self.S, self.s_L, self.s_R, self.K
+#     # ---------- r_temp: two-stage, saturating ----------
+#     def _r_temp_single(self, tau: float, tau_min: float, tau_max: float, a: float, b: float) -> float:
+#         M, S, sL, sR, K = self.M, self.S, self.s_L, self.s_R, self.K
 
-        if tau <= tau_min - K:
-            return -M
-        elif tau_min - K < tau < tau_min:
-            return M * (1.0 - self.eta) - S * (tau_min - tau)
-        elif tau_min <= tau <= a:
-            return M - sL * (a - tau)
-        elif a < tau < b:
-            return M
-        elif b <= tau <= tau_max:
-            return M - sR * (tau - b)
-        elif tau_max < tau < tau_max + K:
-            return M * (1.0 - self.eta) - S * (tau - tau_max)
-        else:
-            return -M
+#         if tau <= tau_min - K:
+#             return -M
+#         elif tau_min - K < tau < tau_min:
+#             return M * (1.0 - self.eta) - S * (tau_min - tau)
+#         elif tau_min <= tau <= a:
+#             return M - sL * (a - tau)
+#         elif a < tau < b:
+#             return M
+#         elif b <= tau <= tau_max:
+#             return M - sR * (tau - b)
+#         elif tau_max < tau < tau_max + K:
+#             return M * (1.0 - self.eta) - S * (tau - tau_max)
+#         else:
+#             return -M
 
-    # ---------- difficulty & bins ----------
-    @staticmethod
-    def _difficulty(Tout: float, tau_min: float, tau_max: float) -> float:
-        if Tout < tau_min:
-            return tau_min - Tout
-        if Tout > tau_max:
-            return Tout - tau_max
-        return 0.0
+#     # ---------- difficulty & bins ----------
+#     @staticmethod
+#     def _difficulty(Tout: float, Tin:, tau_min: float, tau_max: float) -> float:
+#         if Tout < tau_min:
+#             return tau_min - Tout
+#         if Tout > tau_max:
+#             return Tout - tau_max
+#         return 0.0
 
-    def _bin_index(self, d: float) -> int:
-        for i in range(self.num_bins - 1):
-            if d < self.bin_edges[i + 1]:
-                return i
-        return self.num_bins - 1
+#     def _bin_index(self, d: float) -> int:
+#         for i in range(self.num_bins - 1):
+#             if d < self.bin_edges[i + 1]:
+#                 return i
+#         return self.num_bins - 1
 
-    # ---------- EMA updates ----------
-    def _update_bin_stats(self, idx: int, E_t: float) -> Tuple[float, float]:
-        if not self._bin_init[idx]:
-            self.mu_bins[idx] = E_t
-            self.var_bins[idx] = 0.0
-            self.sigma_bins[idx] = 0.0
-            self._bin_init[idx] = True
-            return self.mu_bins[idx], self.sigma_bins[idx]
+#     # ---------- EMA updates ----------
+#     def _update_bin_stats(self, idx: int, E_t: float) -> Tuple[float, float]:
+#         if not self._bin_init[idx]:
+#             self.mu_bins[idx] = E_t
+#             self.var_bins[idx] = 0.0
+#             self.sigma_bins[idx] = 0.0
+#             self._bin_init[idx] = True
+#             return self.mu_bins[idx], self.sigma_bins[idx]
 
-        mu_old = self.mu_bins[idx]
-        v_old  = self.var_bins[idx]
+#         mu_old = self.mu_bins[idx]
+#         v_old  = self.var_bins[idx]
 
-        mu = (1.0 - self.alpha) * mu_old + self.alpha * E_t
-        v  = (1.0 - self.alpha) * v_old + self.alpha * (E_t - mu) ** 2
-        sigma = math.sqrt(v + self.eps)
+#         mu = (1.0 - self.alpha) * mu_old + self.alpha * E_t
+#         v  = (1.0 - self.alpha) * v_old + self.alpha * (E_t - mu) ** 2
+#         sigma = math.sqrt(v + self.eps)
 
-        self.mu_bins[idx] = mu
-        self.var_bins[idx] = v
-        self.sigma_bins[idx] = sigma
-        return mu, sigma
+#         self.mu_bins[idx] = mu
+#         self.var_bins[idx] = v
+#         self.sigma_bins[idx] = sigma
+#         return mu, sigma
 
-    # ---------- r_energy: adaptive, bounded ----------
-    def _r_energy(self, E_t: float, d: float, bin_idx: int) -> float:
-        mu_b, sigma_b = self._update_bin_stats(bin_idx, E_t)
-        if sigma_b <= self.eps:
-            u_t = 1.0 if E_t <= mu_b else 0.0
-        else:
-            u_t = (mu_b + self.k * sigma_b - E_t) / (2.0 * self.k * sigma_b + self.eps)
-            u_t = float(np.clip(u_t, 0.0, 1.0))
-        r_raw = 2.0 * u_t - 1.0  # [-1,1]
-        w_mild = 1.0 / (1.0 + (d / self.c) ** self.p)
-        return w_mild * r_raw
+#     # ---------- r_energy: adaptive, bounded ----------
+#     def _r_energy(self, E_t: float, d: float, bin_idx: int) -> float:
+#         mu_b, sigma_b = self._update_bin_stats(bin_idx, E_t)
+#         if sigma_b <= self.eps:
+#             u_t = 1.0 if E_t <= mu_b else 0.0
+#         else:
+#             u_t = (mu_b + self.k * sigma_b - E_t) / (2.0 * self.k * sigma_b + self.eps)
+#             u_t = float(np.clip(u_t, 0.0, 1.0))
+#         r_raw = 2.0 * u_t - 1.0  # [-1,1]
+#         w_mild = 1.0 / (1.0 + (d / self.c) ** self.p)
+#         return w_mild * r_raw
 
-    # ---------- main ----------
-    def __call__(self, obs_dict: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
-        # Season & comfort band
-        summer = self._is_summer(obs_dict)
-        tau_min, tau_max, a, b = self._comfort_band(summer)
+#     # ---------- main ----------
+#     def __call__(self, obs_dict: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
+#         # Season & comfort band
+#         summer = self._is_summer(obs_dict)
+#         tau_min, tau_max, a, b = self._comfort_band(summer)
 
-        # r_temp over listed zones, then normalize to [-1,1]
-        temps = [float(obs_dict[name]) for name in self.temp_names]
-        r_temps = [self._r_temp_single(t, tau_min, tau_max, a, b) for t in temps]
-        r_temp_raw = float(np.mean(r_temps)) if r_temps else 0.0
-        r_temp = float(np.clip(r_temp_raw / self.M, -1.0, 1.0))
+#         # r_temp over listed zones, then normalize to [-1,1]
+#         temps = [float(obs_dict[name]) for name in self.temp_names]
+#         r_temps = [self._r_temp_single(t, tau_min, tau_max, a, b) for t in temps]
+#         r_temp_raw = float(np.mean(r_temps)) if r_temps else 0.0
+#         r_temp = float(np.clip(r_temp_raw / self.M, -1.0, 1.0))
 
-        # Outdoor difficulty & bin
-        Tout = float(obs_dict.get('outdoor_temperature',
-                       obs_dict.get('outdoor_temp',
-                       obs_dict.get('Tout', (tau_min + tau_max) / 2.0))))
-        d = self._difficulty(Tout, tau_min, tau_max)
-        bin_idx = self._bin_index(d)
+#         # Outdoor difficulty & bin
+#         Tout = float(obs_dict.get('outdoor_temperature',
+#                        obs_dict.get('outdoor_temp',
+#                        obs_dict.get('Tout', (tau_min + tau_max) / 2.0))))
+        
+#         d = self._difficulty(Tout, tau_min, tau_max)
+#         bin_idx = self._bin_index(d)
 
-        # Aggregate energy/power across provided vars
-        E_t = float(np.sum([float(obs_dict[n]) for n in self.energy_names])) if self.energy_names else 0.0
+#         # Aggregate energy/power across provided vars
+#         E_t = float(np.sum([float(obs_dict[n]) for n in self.energy_names])) if self.energy_names else 0.0
 
-        # r_energy
-        r_energy = self._r_energy(E_t, d, bin_idx)
+#         # r_energy
+#         r_energy = self._r_energy(E_t, d, bin_idx)
 
-        # Convex mixture
-        R = self.w * r_temp + (1.0 - self.w) * r_energy
-        R = float(np.clip(R, -1.0, 1.0))
+#         # Convex mixture
+#         R = self.w * r_temp + (1.0 - self.w) * r_energy
+#         R = float(np.clip(R, -1.0, 1.0))
 
-        info = {
-            'reward': R,
-            'r_temp': r_temp,
-            'r_temp_raw': r_temp_raw,
-            'r_energy': r_energy,
-            'w_mixture': self.w,
-            'difficulty_d': d,
-            'difficulty_bin': bin_idx,
-            'temp_avg': float(np.mean(temps)) if temps else None,
-            'tau_min': tau_min,
-            'tau_max': tau_max,
-            'a': a,
-            'b': b,
-            'E_t_total': E_t,
-        }
-        return R, info
+#         info = {
+#             'reward': R,
+#             'r_temp': r_temp,
+#             'r_temp_raw': r_temp_raw,
+#             'r_energy': r_energy,
+#             'w_mixture': self.w,
+#             'difficulty_d': d,
+#             'difficulty_bin': bin_idx,
+#             'temp_avg': float(np.mean(temps)) if temps else None,
+#             'tau_min': tau_min,
+#             'tau_max': tau_max,
+#             'a': a,
+#             'b': b,
+#             'E_t_total': E_t,
+#         }
+#         return R, info
 
 from typing import Any, Dict, List, Tuple
 from datetime import datetime

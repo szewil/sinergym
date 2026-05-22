@@ -1,10 +1,9 @@
 # ---------------------------------------------------------------------------- #
 #                                    BASICS                                    #
 # ---------------------------------------------------------------------------- #
-experiment_name: S2-E1
+experiment_name: 1Yr-5min-c18.20-h26.28-ComfortOnly-WeatherFiles-Doh-Khor-Kiran
 environment: Eplus-2zone-hot-continuous-stochastic-v1
 episodes: 20
-# timestep = 6
 
 # ---------------------------------------------------------------------------- #
 #                                 SB3 ALGORITHM                                #
@@ -13,46 +12,29 @@ algorithm:
   name: stable_baselines3:PPO
   log_interval: 1
   parameters:
+    # BASELINE PPO CONFIG FOR HVAC (From Literature)
     policy: MlpPolicy
     learning_rate: 3e-4     
     n_steps: 4096            
     batch_size: 256
-    n_epochs: 10
+    n_epochs: 8
     
-    gamma: 0.99
-    gae_lambda: 0.95
-    clip_range: 0.2
-    ent_coef: 0.1         
-    vf_coef: 0.5
-    max_grad_norm: 0.5
-    clip_range_vf: 0.1
+    gamma: 0.97           # Discount factor: how much future rewards matter vs immediate ones (closer to 1 = long-term planning)
+    gae_lambda: 0.9     # GAE decay factor: balances bias vs variance in advantage estimation (lower = faster reaction, higher = smoother)
+    clip_range: 0.17      # PPO policy update limit: prevents drastic policy changes (stability vs learning speed)
+    ent_coef: 0.03        # Entropy bonus: encourages exploration; higher = more randomness in actions
+    vf_coef: 0.3         # Weight of value loss: scales how much the critic (value net) influences total loss
+    max_grad_norm: 0.5   # Gradient clipping: prevents exploding gradients (stability in training)
+    clip_range_vf: 0.1   # Clipping for value function updates: limits how fast value estimates can change
     
     normalize_advantage: true
     use_sde: false
 
 # ---------------------------------------------------------------------------- #
-#                             INITIAL STATE (MODEL)                            #
-# ---------------------------------------------------------------------------- #
-
-# -------------------------------- Local Path -------------------------------- #
-# model: 
-#   local_path: </path/to/model>
-
-# ----------------------------- WANDB model Path ----------------------------- #
-# model:
-#   project: test-project
-#   entity: alejandro-campoy
-#   artifact_name: Eplus-PPO-training-example_2025-05-23_18-48_edk4lh5z
-#   artifact_type: output
-#   artifact_tag: v0
-#   artifact_path: Sinergym_output/
-#   model_path: Sinergym_output/evaluation/best_model.zip
-
-# ---------------------------------------------------------------------------- #
 #                                  EVALUATION                                  #
 # ---------------------------------------------------------------------------- #
 evaluation:
-  eval_freq: 10
+  eval_freq:  10
   eval_length: 1
 
 # ---------------------------------------------------------------------------- #
@@ -62,37 +44,27 @@ evaluation:
 env_yaml_config: null
 # In order to overwrite some parameters of the environment, you can use the following
 env_params:
-  seed: null
+  seed: 123
   reward: sinergym.utils.rewards:ComfortGatedReward
   reward_kwargs: 
-    energy_variables:
+    energy_variables: 
       - total_electricity_HVAC
     temperature_variables:
       - indoor_temperature
     range_comfort_winter: [18, 26]
     range_comfort_summer: [18, 26]  
-    # energy_weight: 0.4
+    
     # Two-stage temperature reward shape
     M: 1.0
-    eta: 0.75           # was 0.2 → gentler edge slope → less actuator chatter
-    delta: 0.4         # was 1.0 → wider “flat” comfort core to stabilize near-band behavior
-    K: 3.0             # was 5.0 → farther saturation → stronger pull only when clearly off-band
+    eta: 0.1          
+    delta: 1.0         
+    K: 3.0        
 
-    # Comfort-gated energy
-    lambda_energy: 0.0   # was 0.5 → prioritize comfort early; add energy pressure but not dominant
-    c: 5.0              # was 10.0 → mildness decays a bit sooner on harsh days
-    p: 2.0               # was 2.0 → slightly smoother decay curve
+    window_steps: 2016     # 1 week with 5-min steps
+    lambda_dev: 0.04      # or 0.05 if you want stronger pressure
 
-    # Adaptive energy normalization (per-bin EMA)
-    alpha: 0.03           # was 0.02 → stats adapt ~2× faster (≈ 4–5 hours half-life at 10-min steps)
-    k: 0.8                # was 2.0 → wider tolerance band; less noisy energy gradients early on
-    difficulty_bins: [0.0, 1.5, 4.0, 8.0]   # was [0,2,5,10] → finer resolution in the “hard but common” range
-    epsilon: 1e-8         # was 1e-9 → a bit more numerical cushion AT_DA_Doha.404280_TMYx.2007-2021.epw'
-
-    gate_theta: 0.0
-    gate_k: 4.0
-  weather_files: 'QAT_DA_Doha.404280_TMYx.2007-2021.epw'
-  building_file: 'greenhouse_triangle_2StageCoolLoop_Heater.epJSON'
+  weather_files: ['QAT_DA_Doha.404280_TMYx.2007-2021.epw', 'QAT_KH_Khor.AP.411610_TMYx.2004-2018.epw', 'QAT_RA_Al.Kiranah.411750_TMYx.epw']
+  building_file: 'greenhouse_triangle_refreg_cooling_heater.epJSON'
   meters:
     hvac_electricity: 'Electricity:HVAC'
   variables:
@@ -102,26 +74,28 @@ env_params:
     indoor_temperature: ['Zone Mean Air Temperature', 'Greenhouse Zone Roof']
     indoor_humidity: ['Site Outdoor Air Relative Humidity', 'Environment']
 
-    D_Cooler_Electricity_Rate: ["Evaporative Cooler Electricity Rate", "Evaporative Cooler"]
-    ID_Cooler_Electricity_Rate: ["Evaporative Cooler Electricity Rate", "Indirect Evaporative Cooler"]
-    CoolerFan_Electricity_Rate: ["Fan Electricity Rate", "Supply Fan"]
-    CoolerFan_Mass_Flow: ["Fan Air Mass Flow Rate", "Supply Fan"]
+    CoolerChlr_Electricity_Rate: ["Chiller Electricity Rate", "Chiller"]
+    CoolerTwrFan_Electricity_Rate: ["Cooling Tower Fan Electricity Rate", "Cooling Tower"]
+    CoolerTwrHtr_Electricity_Rate: ["Cooling Tower Basin Heater Electricity Rate", "Cooling Tower"]  
+    CoolerCwPmp_Electricity_Rate: ["Pump Electricity Rate", "CW Circ Pump"]
+    CoolerConPmp_Electricity_Rate: ["Pump Electricity Rate", "Cond Circ Pump"]
     
-    htg_setpoint: ['Zone Thermostat Heating Setpoint Temperature', 'Greenhouse Zone Roof']
-    clg_setpoint: ['Zone Thermostat Cooling Setpoint Temperature', 'Greenhouse Zone Roof']
+    CoolerFan_Electricity_Rate: ["Fan Electricity Rate", "Cold Fan"]
+    CoolerFan_Mass_Flow: ["Fan Air Mass Flow Rate", "Cold Fan"]
 
     HeaterFan_Electricity_Rate: ["Fan Electricity Rate", "Heater Fan"]
     HeaterCoil_Electricity_Rate: ["Heating Coil Electricity Rate", "Roof Heater Coil"]
     HeaterFan_Mass_Flow: ["Fan Air Mass Flow Rate", "Heater Fan"]
 
   actuators: 
-    FanFlow_C1: ["Fan", "Fan Air Mass Flow Rate", "Supply Fan"]
-    FanFlow_H1: ["Fan", "Fan Air Mass Flow Rate", "Heater Fan"]
-  
+    htr_fan_avail: ["Schedule:Constant", "Schedule Value", "HeatFanAvail"]
+    Htr_SP: ["Schedule:Constant", "Schedule Value", "HEAT LOOP SP"]
+    clr_fan_avail: ["Schedule:Constant", "Schedule Value", "ColdFanAvail"]
+    Clr_SP : ["Schedule:Constant", "Schedule Value", "Cool LOOP SP"]
   action_space: 
     gym.spaces.Box(
-        low  = np.array([0, 0]),
-        high = np.array([12, 12]),
+        low  = np.array([0, 0,  0, 0]),
+        high = np.array([1, 100, 1, 100]),
         dtype=np.float32
       )
 
@@ -132,22 +106,27 @@ env_params:
 wrappers_yaml_config: null
 # This overwrite wrappers in wrappers_yaml_config if defined
 wrappers:
-  #- sinergym.utils.wrappers:NormalizeAction: {}
+  # - sinergym.utils.wrappers:NormalizeAction: {}
+  - sinergym.utils.wrappers:HeatCoolModeDiscrete: {
+        heat_setpoints: [26, 28],
+        cool_setpoints: [18, 20]}
+
   - sinergym.utils.wrappers:BuildStateWrapper: {}
   - sinergym.utils.wrappers:LaggedObservationWrapper: {
         lagged_variables: ['total_electricity_HVAC', 'indoor_temperature', 'outdoor_temperature'], 
         n_lags: 3}
-  - sinergym.utils.wrappers:NormalizeObservation: {
-      automatic_update: False,
-      exclude_variables: ['sin_month', 'cos_month', 'sin_hour', 'cos_hour']}
-  #- sinergym.utils.wrappers:HybridOnlineZNormWrapper: {}
+
+  # - sinergym.utils.wrappers:NormalizeObservation: {
+  #     automatic_update: true,
+  #     exclude_variables: ['sin_month', 'cos_month', 'sin_hour', 'cos_hour']}
   # - sinergym.utils.wrappers:MinMaxNormWrapper: {}
+
   - sinergym.utils.wrappers:LoggerWrapper:
       storage_class: sinergym.utils.logger:LoggerStorage
   - sinergym.utils.wrappers:CSVLogger: {}
   - sinergym.utils.wrappers:WandBLogger:
       entity: sarazewial19-carnegie-mellon-university
-      project_name: PPPO-greenhouse-NormalizationTests
+      project_name: PPPO-greenhouse-TimeConfig
 
 # ---------------------------------------------------------------------------- #
 #                            GOOGLE CLOUD (OPTIONAL)                           #

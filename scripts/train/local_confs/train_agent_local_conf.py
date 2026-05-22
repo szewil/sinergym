@@ -1,20 +1,30 @@
 import argparse
-import logging
 import sys
 import traceback
 from datetime import datetime
-
+import pdb
+import time
+import gymnasium as gym
+import numpy as np
 import wandb
 import yaml
 from stable_baselines3 import __version__ as sb3_version
 from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.logger import HumanOutputFormat
 from stable_baselines3.common.logger import Logger as SB3Logger
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.noise import NormalActionNoise
+from stable_baselines3.common.utils import get_linear_fn, get_schedule_fn
+from sinergym.utils.wrappers import MultiObsWrapper
+from sinergym.utils.wrappers import DelayRewardWrapper
+from sinergym.utils.wrappers import BuildStateWrapper, MinMaxNormWrapper
+from wandb.integration.sb3 import WandbCallback
+from torch import nn
 
+import registerenv
 import sinergym
 import sinergym.utils.gcloud as gcloud
-from sinergym.utils.callbacks import LoggerEvalCallback
+from sinergym.utils.callbacks import *
 from sinergym.utils.common import (
     create_environment,
     deep_update,
@@ -23,16 +33,15 @@ from sinergym.utils.common import (
     process_algorithm_parameters,
     process_environment_parameters,
 )
-from sinergym.utils.logger import TerminalLogger, WandBOutputFormat
+from sinergym.utils.logger import WandBOutputFormat
 from sinergym.utils.wrappers import WandBLogger
+from sinergym.utils.common import import_from_path   
 
-# ---------------------------------------------------------------------------- #
-#                                Terminal Logger                               #
-# ---------------------------------------------------------------------------- #
-# Optional: Terminal log in the same format as Sinergym.
-# Logger info can be replaced by print.
-terminal_logger = TerminalLogger()
-logger = terminal_logger.getLogger(name='TRAINING', level=logging.INFO)
+def cosine_lr_schedule(initial_value, lr_min=1e-5):
+    def func(progress_remaining):
+        # progress_remaining goes from 1 → 0
+        return lr_min + 0.5 * (initial_value - lr_min) * (1 + np.cos(np.pi * (1 - progress_remaining)))
+    return func
 
 # ---------------------------------------------------------------------------- #
 #                             Parameters definition                            #
@@ -45,7 +54,7 @@ parser.add_argument(
     required=True,
     type=str,
     dest='configuration',
-    help='Path to experiment configuration (YAML file)',
+    help='Path to experiment configuration (YAML file)'
 )
 args = parser.parse_args()
 
@@ -54,7 +63,7 @@ args = parser.parse_args()
 # ---------------------------------------------------------------------------- #
 
 with open(args.configuration, 'r') as yaml_conf:
-    config = yaml.safe_load(yaml_conf)
+    conf = yaml.safe_load(yaml_conf)
 
 
 # ---------------------------------------------------------------------------- #
@@ -65,54 +74,55 @@ try:
     # ---------------------------------------------------------------------------- #
     #                               Register run name                              #
     # ---------------------------------------------------------------------------- #
-    experiment_date = datetime.today().strftime('%Y-%m-%d_%H-%M')
-    if config.get('experiment_name'):
-        experiment_name = f'{config['experiment_name']}_{experiment_date}'
+
+    if conf.get('experiment_name'):
+        experiment_name = f"{conf['experiment_name']}"
     else:
-        alg_name = config['algorithm']['name'].split(':')[-1]
-        experiment_name = f'{alg_name}_{experiment_date}'
+        alg_name = conf['algorithm']['name'].split(':')[-1]
+        experiment_name = f'{alg_name}'
 
     # ---------------------------------------------------------------------------- #
     #                            Load model path if defined                        #
     # ---------------------------------------------------------------------------- #
     model_path = None
-    if config.get('model'):
-        logger.info(f'Training from pre-trained model defined in config')
+    if conf.get('model'):
         # ---------------------------- Local model path ----------------------------- #
-        if config['model'].get('local_path'):
-            model_path = config['model']['local_path']
+        if conf['model'].get('local_path'):
+            model_path = conf['model']['local_path']
 
         # ------------------------ Weights and Bias model path ----------------------- #
-        if config['model'].get('entity'):
+        if conf['model'].get('entity'):
 
             api = wandb.Api()
             # Get model path
-            artifact_tag = config['model'].get('artifact_tag', 'latest')
-            wandb_path = f'{
-                config['model']['entity']}/{
-                config['model']['project']}/{
-                config['model']['artifact_name']}:{artifact_tag}'
+            artifact_tag = conf['model'].get(
+                'artifact_tag', 'latest')
+            wandb_path = (
+                f"{conf['model']['entity']}/"
+                f"{conf['model']['project']}/"
+                f"{conf['model']['artifact_name']}:{artifact_tag}"
+            )
 
             # Download artifact
             artifact = api.artifact(wandb_path)
-            artifact.download(path_prefix=config['model']['artifact_path'], root='./')
+            artifact.download(
+                path_prefix=conf['model']['artifact_path'],
+                root='./')
 
             # Set model path to local wandb downloaded file
-            model_path = f'./{config['model']['model_path']}'
+            model_path = f"./{conf['model']['model_path']}"
 
         # -------------------------- Google cloud model path ------------------------- #
-        if config['model'].get('bucket_path'):
-            # Download from given bucket (gcloud configured with privileges)
-            client = gcloud.init_storage_client()
-            bucket_name = config['model']['bucket_path'].split('/')[2]
-            model_path = f'{
-                config['model']['bucket_path'].split(
-                    bucket_name + '/')[
-                    -1]}'
-            gcloud.read_from_bucket(client, bucket_name, model_path)
-            model_path = f'./{model_path}'
-
-        logger.info(f'Model path: {model_path}')
+        # if conf['model'].get('bucket_path'):
+        #     # Download from given bucket (gcloud configured with privileges)
+        #     client = gcloud.init_storage_client()
+        #     bucket_name = conf['model']['bucket_path'].split('/')[2]
+        #     model_path = (
+        #         f"{conf['model']['bucket_path'].split(bucket_name + '/')[-1]}"
+        #         )
+        #     gcloud.read_from_bucket(client, bucket_name, model_path)
+        #     model_path = f'./{model_path}'
+            
 
     # ---------------------------------------------------------------------------- #
     #                           Environment parameters                             #
@@ -120,24 +130,15 @@ try:
     env_params = {}
 
     # ------- Update env params configuration with env yaml file if exists ------- #
-    if config.get('env_yaml_config'):
-        logger.info(
-            f'Reading environment parameters from {
-                config['env_yaml_config']}'
-        )
-        with open(config['env_yaml_config'], 'r') as env_yaml_conf:
+    if conf.get('env_yaml_config'):
+        with open(conf['env_yaml_config'], 'r') as env_yaml_conf:
             env_params.update(yaml.load(env_yaml_conf, Loader=yaml.FullLoader))
-
+    
     # -- Update env params configuration with specified env parameters if exists -- #
-    if config.get('env_params'):
-        logger.info(f'Reading environment parameters from env_params config')
-        if env_params:
-            logger.info(
-                f'Overwriting (deep_update) environment parameters from env_yaml_config with env_params config'
-            )
+    if conf.get('env_params'):
         env_params = deep_update(
-            env_params, process_environment_parameters(config['env_params'])
-        )
+            env_params, process_environment_parameters(
+                conf['env_params']))
 
     # ------------ For this script, the execution name will be updated ----------- #
     env_params.update({'env_name': experiment_name})
@@ -148,19 +149,15 @@ try:
     wrappers = {}
 
     # ------------------ Read wrappers from yaml file if exists ------------------ #
-    if config.get('wrappers_yaml_config'):
-        logger.info(
-            f'Reading wrappers from {
-                config['wrappers_yaml_config']}'
-        )
-        with open(config['wrappers_yaml_config'], 'r') as f:
+    if conf.get('wrappers_yaml_config'):
+        with open(conf['wrappers_yaml_config'], 'r') as f:
             wrappers = yaml.load(f, Loader=yaml.FullLoader)
 
     # ------ Read wrappers from yaml file and overwrite yaml file if exists ------ #
-    if config.get('wrappers'):
-        logger.info(f'Reading wrappers from wrappers config')
+    if conf.get('wrappers'):
         # Update wrappers with the ones defined in the yaml file
-        for wrapper in config['wrappers']:
+        for wrapper in conf['wrappers']:
+            print(wrapper)
             for wrapper_name, wrapper_arguments in wrapper.items():
                 for name, value in wrapper_arguments.items():
                     # parse str parameters to sinergym Callable or Objects if
@@ -169,20 +166,26 @@ try:
                         if ':' in value:
                             wrapper_arguments[name] = import_from_path(value)
             wrappers = deep_update(wrappers, {wrapper_name: wrapper_arguments})
-        logger.info(f'Wrappers updated with wrappers config')
+
     # ---------------------------------------------------------------------------- #
     #                Create environment with parameters and wrappers               #
     # ---------------------------------------------------------------------------- #
 
+    # wrappers['sinergym.utils.wrappers:DiscretizeEnv'] = {
+    #         'discrete_space': DISCRETE_SPACE,
+    #         'action_mapping': action
+    #     }
+    # print(wrappers)
     env = create_environment(
-        env_id=config['environment'],
+        env_id=conf['environment'],
         env_params=env_params,
-        wrappers=wrappers,
-        env_deep_update=config.get('env_deep_update', True),
-    )
-    logger.info(
-        f'Environment created with ultimate environment parameters and wrappers'
-    )
+        wrappers=wrappers)
+    print("Available actuators in environment:")
+    print(env.get_wrapper_attr("actuators"))
+
+    #----------------------------------------------------------------------------- #
+    #                     Normalization of reward                                  #
+    # ---------------------------------------------------------------------------- #
 
     # ---------------------------------------------------------------------------- #
     #                 Register hyperparameters in wandb if enabled                 #
@@ -191,137 +194,145 @@ try:
         experiment_params = {
             'sinergym-version': sinergym.__version__,
             'python-version': sys.version,
-            'stable-baselines3-version': sb3_version,
+            'stable-baselines3-version': sb3_version
         }
 
-        env.get_wrapper_attr('wandb_run').config.update(experiment_params)
-        env.get_wrapper_attr('wandb_run').config.update(config)
+        wandb.run.config.update(experiment_params)
+        wandb.run.config.update(conf, allow_val_change=True)
         # Overwrite env_params with the full environment parameters
-        env.get_wrapper_attr('wandb_run').config.update(
-            {'env_params': env.get_wrapper_attr('to_dict')()}, allow_val_change=True
-        )
-        logger.info(f'Experiment and Environment parameters registered in wandb')
+        wandb.run.config.update(
+            {'env_params': env.get_wrapper_attr('to_dict')()}, allow_val_change=True)
 
     # ---------------------------------------------------------------------------- #
     #                           Defining model (algorithm)                         #
     # ---------------------------------------------------------------------------- #
-    alg_name = config['algorithm']['name']
+    alg_name = conf['algorithm']['name']
     alg_cls = import_from_path(alg_name)
-    alg_params = config['algorithm'].get('parameters', {'policy': 'MlpPolicy'})
-    alg_params = process_algorithm_parameters(alg_params)
+    alg_params = conf['algorithm'].get(
+        'parameters', {'policy': 'MlpPolicy'})
+   
+    # policy_kwargs = dict(
+    #     net_arch = dict(pi=[32,32], vf=[32,32]),
+    #     activation_fn = nn.ReLU
+    # )
+    rb = alg_params.get('rollout_buffer_class')
+    if isinstance(rb, str):
+        alg_params['rollout_buffer_class'] = import_from_path(rb)  
+    
+    alg_params['learning_rate'] = cosine_lr_schedule(3e-4, 1e-5)
+    # policy_kwargs = dict(
+    #     net_arch=dict(pi=[32, 32], vf=[32, 32]),
+    #     activation_fn=nn.ReLU
+    # )
+    # alg_params['policy_kwargs'] = policy_kwargs
 
+
+    alg_params = process_algorithm_parameters(alg_params)
+    
     # --------------------------- Training from scratch -------------------------- #
     if model_path is None:
         try:
-            model = alg_cls(env=env, **alg_params)
-            logger.info(f'Model created from scratch')
+            model = alg_cls(env=env, ** alg_params)
         except NameError:
             raise NameError(
-                'Algorithm {} does not exists. It must be a valid SB3 algorithm.'.format(
-                    alg_name
-                )
-            )
+                'Algorithm {} does not exists. It must be a valid SB3 algorithm.'.format(alg_name))
 
-    # --------------------- Training from a pre-trained model --------------------- #
+    # --------------------- Traning from a pre-trained model --------------------- #
     else:
         model = None
         try:
-            model = alg_cls.load(model_path)
-            logger.info(f'Model loaded from {model_path}')
+            model = alg_cls.load(
+                model_path)
         except NameError:
             raise NameError(
-                'Algorithm {} does not exists. It must be a valid SB3 algorithm.'.format(
-                    alg_name
-                )
-            )
-
+                'Algorithm {} does not exists. It must be a valid SB3 algorithm.'.format(alg_name))
         model.set_env(env)
-        logger.info(f'Model set to environment')
-
+        
     # ---------------------------------------------------------------------------- #
     #                              SET UP WANDB LOGGER                             #
     # ---------------------------------------------------------------------------- #
     if is_wrapped(env, WandBLogger):
         # wandb and SB3 logger
-        sb3_logger = SB3Logger(
+        logger = SB3Logger(
             folder=None,
             output_formats=[
-                HumanOutputFormat(sys.stdout, max_length=120),
-                WandBOutputFormat(),
-            ],
-        )
-        model.set_logger(sb3_logger)
-        logger.info(f'WandB logger format set to model')
+                HumanOutputFormat(
+                    sys.stdout,
+                    max_length=120),
+                WandBOutputFormat()])
+        model.set_logger(logger)
+
 
     # ---------------------------------------------------------------------------- #
     #                                   CALLBACKS                                  #
     # ---------------------------------------------------------------------------- #
     callbacks = []
+    
 
     # ---------------------------- EVALUATION CALLBACK --------------------------- #
-    if config.get('evaluation'):
+    if conf.get('evaluation'):
 
         # ------------ Preparing the evaluation environment configuration ------------ #
         env_params['env_name'] = experiment_name + '_EVALUATION'
-        logger.info(
-            f'Evaluation enabled with environment name: {
-                env_params["env_name"]}'
-        )
 
         # By default, the evaluation environment does not use WandBLogger
         if wrappers:
-            key_to_remove = [key for key in wrappers if 'WandBLogger' in key][0]
+            key_to_remove = [
+                key for key in wrappers if 'WandBLogger' in key][0]
             del wrappers[key_to_remove]
-            logger.info(f'Wrappers updated without WandBLogger for evaluations')
+        
+        
 
         # ----------------------- Create evaluation environment ---------------------- #
         eval_env = create_environment(
-            env_id=config['environment'],
+            env_id=conf['environment'],
             env_params=env_params,
-            wrappers=wrappers,
-            env_deep_update=config.get('env_deep_update', True),
-        )
-        logger.info(
-            f'Evaluation environment created with the same parameters and wrappers (except WandBLogger)'
-        )
+            wrappers=wrappers)
 
         # ------------------------ Create evaluation callback ------------------------ #
         eval_callback = LoggerEvalCallback(
             eval_env=eval_env,
             train_env=env,
-            n_eval_episodes=config['evaluation']['eval_length'],
-            eval_freq_episodes=config['evaluation']['eval_freq'],
+            n_eval_episodes=conf['evaluation']['eval_length'],
+            eval_freq_episodes=conf['evaluation']['eval_freq'],
             deterministic=True,
             excluded_metrics=[
                 'episode_num',
                 'length (timesteps)',
-                'time_elapsed (hours)',
-            ],
-            verbose=1,
-        )
+                'time_elapsed (hours)'],
+            verbose=1)
 
         callbacks.append(eval_callback)
+
+    # ---------------------------- WANDB CALLBACK (ADD THIS) ---------------------- #
+    if is_wrapped(env, WandBLogger):
+        wandb_callback = WandbCallback(
+            gradient_save_freq=0,               # disable gradients
+            model_save_freq=10000,              # save every 10k steps
+            model_save_path=f"models/{experiment_name}",  # local folder
+            verbose=1
+        )
+        callbacks.append(wandb_callback)
 
     callback = CallbackList(callbacks)
 
     # ---------------------------------------------------------------------------- #
     #                                   TRAINING                                   #
     # ---------------------------------------------------------------------------- #
-    timesteps = config['episodes'] * (env.get_wrapper_attr('timestep_per_episode'))
-
-    logger.info(f'Starting training with {timesteps} total timesteps')
+    timesteps = conf['episodes'] * \
+        (env.get_wrapper_attr('timestep_per_episode'))
     model.learn(
         total_timesteps=timesteps,
         callback=callback,
-        log_interval=config['algorithm']['log_interval'],
-    )
-    logger.info(f'Training completed')
+        log_interval=conf['algorithm']['log_interval'])
 
-    model.save(env.get_wrapper_attr('workspace_path') + '/model')
-    logger.info(
-        f'Model saved to {
-            env.get_wrapper_attr("workspace_path")}/model'
-    )
+
+
+    # model.save(env.get_wrapper_attr('workspace_path') + '/model')
+    if hasattr(eval_callback, 'best_model_path'):
+        print(f"BEST MODEL FOUND AT: {eval_callback.best_model_path}")
+        model = alg_cls.load(eval_callback.best_model_path, env=env)
+        model.save(env.get_wrapper_attr('workspace_path') + '/best_model')
 
     # If the environment is not closed, this script will do it in
     # order to correctly log all the simulation data (Energyplus + Sinergym
@@ -332,25 +343,23 @@ try:
     # ---------------------------------------------------------------------------- #
     #                      Google Cloud Bucket Storage                             #
     # ---------------------------------------------------------------------------- #
-    if config.get('cloud'):
-        if config['cloud'].get('remote_store'):
-            # Initiate Google Cloud client
-            client = gcloud.init_storage_client()
-            # Send output to common Google Cloud resource
-            gcloud.upload_to_bucket(
-                client,
-                src_path=env.get_wrapper_attr('workspace_path'),
-                dest_bucket_name=config['cloud']['remote_store'],
-                dest_path=experiment_name,
-            )
-        # ---------------------------------------------------------------------------- #
-        #                   Autodelete option if is a cloud resource                   #
-        # ---------------------------------------------------------------------------- #
-        if config['cloud'].get('auto_delete'):
-            token = gcloud.get_service_account_token()
-            gcloud.delete_instance_MIG_from_container(
-                config['cloud']['auto_delete']['group_name'], token
-            )
+    # if conf.get('cloud'):
+    #     if conf['cloud'].get('remote_store'):
+    #         # Initiate Google Cloud client
+    #         client = gcloud.init_storage_client()
+    #         # Send output to common Google Cloud resource
+    #         gcloud.upload_to_bucket(
+    #             client,
+    #             src_path=env.get_wrapper_attr('workspace_path'),
+    #             dest_bucket_name=conf['cloud']['remote_store'],
+    #             dest_path=experiment_name)
+    #     # ---------------------------------------------------------------------------- #
+    #     #                   Autodelete option if is a cloud resource                   #
+    #     # ---------------------------------------------------------------------------- #
+    #     if conf['cloud'].get('auto_delete'):
+    #         token = gcloud.get_service_account_token()
+    #         gcloud.delete_instance_MIG_from_container(
+    #             conf['cloud']['auto_delete']['group_name'], token)
 
 # If there is some error in the code, delete remote container if exists
 # include KeyboardInterrupt
@@ -360,17 +369,15 @@ except (Exception, KeyboardInterrupt) as err:
     print(traceback.print_exc(), file=sys.stderr)
 
     # Current model state save
-    if model:
-        model.save(env.get_wrapper_attr('workspace_path') + '/model')
+    model.save(env.get_wrapper_attr('workspace_path') + '/model')
 
     env.close()
 
     # Auto delete
-    if config.get('cloud'):
-        if config['cloud'].get('auto_delete'):
+    if conf.get('cloud'):
+        if conf['cloud'].get('auto_delete'):
             print('Deleting remote container')
             token = gcloud.get_service_account_token()
             gcloud.delete_instance_MIG_from_container(
-                config['cloud']['auto_delete']['group_name'], token
-            )
+                conf['cloud']['auto_delete']['group_name'], token)
     raise err

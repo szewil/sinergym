@@ -41066,7 +41066,7 @@
         "Heater Fan": {
             "air_inlet_node_name": "Fan Inlet Node 5",
             "air_outlet_node_name": "Heater Coil Inlet Node",
-            "availability_schedule_name": "AlwaysOn",
+            "availability_schedule_name": "HeatFanAvail",
             "fan_total_efficiency": 0.9,
             "maximum_flow_rate": 12.0,
             "motor_efficiency": 0.9,
@@ -41324,7 +41324,7 @@
         "Roof Heater Coil": {
             "availability_schedule_name": "HeatCoilAvail",
             "efficiency": 0.9,
-            "nominal_capacity": 250000,
+            "nominal_capacity": 200000,
             "air_inlet_node_name": "Heater Coil Inlet Node",
             "air_outlet_node_name": "Supply Outlet Node 5",
             "temperature_setpoint_node_name": "Supply Outlet Node 5"
@@ -41508,6 +41508,10 @@
             "hourly_value": 100.0
         },
         "HeatCoilAvail": {
+            "schedule_type_limits_name": "OnOff",
+            "hourly_value": 1
+        },
+        "HeatFanAvail": {
             "schedule_type_limits_name": "OnOff",
             "hourly_value": 1
         }
@@ -41956,7 +41960,7 @@
     },
     "Timestep": {
         "Timestep 1": {
-            "number_of_timesteps_per_hour": 12
+            "number_of_timesteps_per_hour": 1
         }
     },
     "Version": {

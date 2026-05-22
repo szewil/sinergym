@@ -15,10 +15,10 @@ algorithm:
   parameters:
     policy: MlpPolicy
     learning_rate: 0.0007
-    n_steps: 5
-    gamma: 0.99
-    gae_lambda: 1.0
-    ent_coef: 0.0
+    n_steps: 288
+    gamma: 0.995
+    gae_lambda: 0.94
+    ent_coef: 0.01
     vf_coef: 0.5
     max_grad_norm: 0.5
     rms_prop_eps: 1.0e-5
@@ -27,13 +27,13 @@ algorithm:
     sde_sample_freq: -1
     rollout_buffer_class: null
     rollout_buffer_kwargs: null
-    normalize_advantage: false
+    normalize_advantage: true
     stats_window_size: 100
     tensorboard_log: null
     policy_kwargs: null
     verbose: 1
     seed: null
-    device: auto
+    device: cpu
     _init_setup_model: true
 
 
@@ -41,8 +41,8 @@ algorithm:
 #                                  EVALUATION                                  #
 # ---------------------------------------------------------------------------- #
 evaluation:
-  eval_freq: 10
-  eval_length: 1
+  eval_freq: 2
+  eval_length: 2
 
 # ---------------------------------------------------------------------------- #
 #                       ENVIRONMENT OVERWRITE PARAMETERS                       #
@@ -110,7 +110,7 @@ wrappers_yaml_config: null
 wrappers:
   # - sinergym.utils.wrappers:NormalizeAction: {}
   - sinergym.utils.wrappers:ModeBasedDiscreteHVAC:
-        levels: [0, 6, 12]   # Your airflow levels
+        levels: [0, 12]   # Your airflow levels
 
   - sinergym.utils.wrappers:BuildStateWrapper: {}
   - sinergym.utils.wrappers:LaggedObservationWrapper: {

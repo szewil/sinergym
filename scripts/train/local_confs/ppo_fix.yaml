@@ -1,10 +1,9 @@
 # ---------------------------------------------------------------------------- #
 #                                    BASICS                                    #
 # ---------------------------------------------------------------------------- #
-experiment_name:  Htr250000-Heating-Tstep12-seed123
+experiment_name: 1Yr-5min-c18.20-h26.28-ComfortOnly-WeatherFiles-Doh-Khor-Kiran
 environment: Eplus-2zone-hot-continuous-stochastic-v1
 episodes: 20
-# timestep = 6
 
 # ---------------------------------------------------------------------------- #
 #                                 SB3 ALGORITHM                                #
@@ -35,7 +34,7 @@ algorithm:
 #                                  EVALUATION                                  #
 # ---------------------------------------------------------------------------- #
 evaluation:
-  eval_freq: 10
+  eval_freq:  10
   eval_length: 1
 
 # ---------------------------------------------------------------------------- #
@@ -57,15 +56,15 @@ env_params:
     
     # Two-stage temperature reward shape
     M: 1.0
-    eta: 0.1           # was 0.2 → gentler edge slope → less actuator chatter
-    delta: 1.0         # was 1.0 → wider “flat” comfort core to stabilize near-band behavior
-    K: 3.0         # was 5.0 → farther saturation → stronger pull only when clearly off-band
+    eta: 0.1          
+    delta: 1.0         
+    K: 3.0        
 
     window_steps: 2016     # 1 week with 5-min steps
     lambda_dev: 0.04      # or 0.05 if you want stronger pressure
 
-  weather_files: 'QAT_DA_Doha.404280_TMYx.2007-2021.epw'
-  building_file: 'greenhouse_triangle_2StageCoolLoop_Heater.epJSON'
+  weather_files: ['QAT_DA_Doha.404280_TMYx.2007-2021.epw', 'QAT_KH_Khor.AP.411610_TMYx.2004-2018.epw', 'QAT_RA_Al.Kiranah.411750_TMYx.epw']
+  building_file: 'greenhouse_triangle_CoolingCoil_Heater.epJSON'
   meters:
     hvac_electricity: 'Electricity:HVAC'
   variables:
@@ -75,23 +74,28 @@ env_params:
     indoor_temperature: ['Zone Mean Air Temperature', 'Greenhouse Zone Roof']
     indoor_humidity: ['Site Outdoor Air Relative Humidity', 'Environment']
 
-    D_Cooler_Electricity_Rate: ["Evaporative Cooler Electricity Rate", "Evaporative Cooler"]
-    ID_Cooler_Electricity_Rate: ["Evaporative Cooler Electricity Rate", "Indirect Evaporative Cooler"]
-    CoolerFan_Electricity_Rate: ["Fan Electricity Rate", "Supply Fan"]
-    CoolerFan_Mass_Flow: ["Fan Air Mass Flow Rate", "Supply Fan"]
+    CoolerChlr_Electricity_Rate: ["Chiller Electricity Rate", "Chiller"]
+    CoolerTwrFan_Electricity_Rate: ["Cooling Tower Fan Electricity Rate", "Cooling Tower"]
+    CoolerTwrHtr_Electricity_Rate: ["Cooling Tower Basin Heater Electricity Rate", "Cooling Tower"]  
+    CoolerCwPmp_Electricity_Rate: ["Pump Electricity Rate", "CW Circ Pump"]
+    CoolerConPmp_Electricity_Rate: ["Pump Electricity Rate", "Cond Circ Pump"]
+    
+    CoolerFan_Electricity_Rate: ["Fan Electricity Rate", "Cold Fan"]
+    CoolerFan_Mass_Flow: ["Fan Air Mass Flow Rate", "Cold Fan"]
 
     HeaterFan_Electricity_Rate: ["Fan Electricity Rate", "Heater Fan"]
     HeaterCoil_Electricity_Rate: ["Heating Coil Electricity Rate", "Roof Heater Coil"]
     HeaterFan_Mass_Flow: ["Fan Air Mass Flow Rate", "Heater Fan"]
 
   actuators: 
-    FanFlow_C1: ["Fan", "Fan Air Mass Flow Rate", "Supply Fan"]
-    FanFlow_H1: ["Fan", "Fan Air Mass Flow Rate", "Heater Fan"]
-  
+    htr_fan_avail: ["Schedule:Constant", "Schedule Value", "HeatFanAvail"]
+    Htr_SP: ["Schedule:Constant", "Schedule Value", "HEAT LOOP SP"]
+    clr_fan_avail: ["Schedule:Constant", "Schedule Value", "ColdFanAvail"]
+    Clr_SP : ["Schedule:Constant", "Schedule Value", "Cool LOOP SP"]
   action_space: 
     gym.spaces.Box(
-        low  = np.array([0, 0]),
-        high = np.array([12, 12]),
+        low  = np.array([0, 0,  0, 0]),
+        high = np.array([1, 100, 1, 100]),
         dtype=np.float32
       )
 
@@ -103,17 +107,18 @@ wrappers_yaml_config: null
 # This overwrite wrappers in wrappers_yaml_config if defined
 wrappers:
   # - sinergym.utils.wrappers:NormalizeAction: {}
-  - sinergym.utils.wrappers:ModeBasedDiscreteHVAC:
-        levels: [0,  12]   # Your airflow levels
+  - sinergym.utils.wrappers:HeatCoolModeDiscrete: {
+        heat_setpoints: [26, 28],
+        cool_setpoints: [18, 20]}
 
   - sinergym.utils.wrappers:BuildStateWrapper: {}
   - sinergym.utils.wrappers:LaggedObservationWrapper: {
         lagged_variables: ['total_electricity_HVAC', 'indoor_temperature', 'outdoor_temperature'], 
         n_lags: 3}
 
-  - sinergym.utils.wrappers:NormalizeObservation: {
-      automatic_update: true,
-      exclude_variables: ['sin_month', 'cos_month', 'sin_hour', 'cos_hour']}
+  # - sinergym.utils.wrappers:NormalizeObservation: {
+  #     automatic_update: true,
+  #     exclude_variables: ['sin_month', 'cos_month', 'sin_hour', 'cos_hour']}
   # - sinergym.utils.wrappers:MinMaxNormWrapper: {}
 
   - sinergym.utils.wrappers:LoggerWrapper:
@@ -121,7 +126,7 @@ wrappers:
   - sinergym.utils.wrappers:CSVLogger: {}
   - sinergym.utils.wrappers:WandBLogger:
       entity: sarazewial19-carnegie-mellon-university
-      project_name: PPPO-greenhouse-Fixing
+      project_name: PPPO-greenhouse-TimeConfig
 
 # ---------------------------------------------------------------------------- #
 #                            GOOGLE CLOUD (OPTIONAL)                           #

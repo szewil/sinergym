@@ -41097,7 +41097,7 @@
             "begin_year": 2009,
             "day_of_week_for_start_day": "Sunday",
             "end_day_of_month": 31,
-            "end_month": 12,
+            "end_month": 3,
             "end_year": 2009,
             "use_weather_file_daylight_saving_period": "Yes",
             "use_weather_file_holidays_and_special_days": "Yes",
@@ -41496,7 +41496,7 @@
     },
     "Timestep": {
         "Timestep 1": {
-            "number_of_timesteps_per_hour": 6
+            "number_of_timesteps_per_hour": 60
         }
     },
     "Version": {
@@ -48548,38 +48548,6 @@
             "x_origin": 0,
             "y_origin": 0,
             "z_origin": 0
-        }
-    },
-    "ZoneVentilation:WindandStackOpenArea": {
-        "Roof Window Ventilation Left": {
-            "delta_temperature": 1,
-            "discharge_coefficient_for_opening": 0.6,
-            "effective_angle": 90,
-            "height_difference": 3.65402622583516,
-            "maximum_indoor_temperature": 60,
-            "maximum_outdoor_temperature": 60,
-            "maximum_wind_speed": 30,
-            "minimum_indoor_temperature": 0,
-            "minimum_outdoor_temperature": 0,
-            "opening_area": 39.0446,
-            "opening_area_fraction_schedule_name": "Open Area Fraction Schedule Left",
-            "opening_effectiveness": 0.5,
-            "zone_or_space_name": "Greenhouse Zone Roof"
-        },
-        "Roof Window Ventilation Right": {
-            "delta_temperature": 1,
-            "discharge_coefficient_for_opening": "Autocalculate",
-            "effective_angle": 270,
-            "height_difference": 3.65402622583516,
-            "maximum_indoor_temperature": 30,
-            "maximum_outdoor_temperature": 35,
-            "maximum_wind_speed": 30,
-            "minimum_indoor_temperature": 20,
-            "minimum_outdoor_temperature": 10,
-            "opening_area": 39.0446,
-            "opening_area_fraction_schedule_name": "Open Area Fraction Schedule Right",
-            "opening_effectiveness": "Autocalculate",
-            "zone_or_space_name": "Greenhouse Zone Roof"
         }
     },
     "Output:Meter": {

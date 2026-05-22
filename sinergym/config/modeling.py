@@ -165,10 +165,10 @@ class ModelJSON(object):
     # ---------------------------------------------------------------------------- #
     #                 Variables and Building model adaptation                      #
     # ---------------------------------------------------------------------------- #
-
+    # REMOVE hardcoded sumer and winter days were MWB I CHANGED TO MDB and DB=> to DP => 
     def adapt_building_to_epw(
         self,
-        summerday: str = 'Ann Clg .4% Condns DB=>MWB',
+        summerday: str = 'Ann Clg .4% Condns DP=>MDB',
         winterday: str = 'Ann Htg 99.6% Condns DB',
     ) -> None:
         """Given a summer day name and winter day name from DDY file, this method modify Location and DesignDay's in order to adapt building model to EPW.

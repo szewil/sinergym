@@ -414,7 +414,7 @@ class EplusEnv(gym.Env):
             # and materializes by worker thread waiting on this queue (EnergyPlus callback
             # not consuming yet/anymore).
             # Timeout value can be increased if E+ timestep takes longer.
-            timeout = 2
+            timeout = 200
             try:
                 self.act_queue.put(action, timeout=timeout)
                 self.last_action = action

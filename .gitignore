@@ -7,6 +7,11 @@ __pycache__/
 
 # Other softwares
 EnergyPlus*/
+energyplus*/
+
+# Large binary files
+libenergyplusapi.so*
+libpython3.8.so*
 
 # Simulation outputs
 Eplus-*/
@@ -63,3 +68,49 @@ artifacts/
 
 # RL training outputs
 Runs/
+Clr-*/
+PPO_*/
+VariableFan*/
+DelayedReward*/
+Hp28*/
+eplus_results/
+
+# Debug/trace CSVs
+trace_l1reward.csv
+trace_debug*.csv
+trace_*.csv
+
+# Normalization/intermediate files
+mean.txt
+var.txt
+*.npz
+
+# EnergyPlus simulation output files
+eplusout.*
+output.json
+screenlog.*
+sqlite.err
+
+# Excluded greenhouse model variants
+greenhouse_triangle_2AC.epJSON
+greenhouse_triangle_2CoolLoop.epJSON
+greenhouse_triangle_2CoolLoopSeq.epJSON
+greenhouse_triangle_2CoolLoop_Heater.epJSON
+greenhouse_triangle_2StageCoolLoop_Heater_copy.epJSON
+greenhouse_triangle_3AC_2heaters.epJSON
+greenhouse_triangle_4AC.epJSON
+greenhouse_triangle_4CoolLoop.epJSON
+greenhouse_triangle_4CoolLoop_2Heaters.epJSON
+greenhouse_triangle_4CoolLoop_Heater.epJSON
+greenhouse_triangle_6AC.epJSON
+greenhouse_triangle_CoolingCoil_Heater_oldBuggy.epJSON
+greenhouse_triangle_Evap.epJSON
+# Excluded script config variants
+ppo_greenhouse_custom.yaml
+ppo_greenhouse_old.yaml
+train_agent_local_conf_old.py
+
+# Generated HTML docs
+HVAC_System_Reference_CoolingCoil_Heater.html
+QUICK_GUIDE.html
+readme.html
