@@ -40,7 +40,7 @@ pip install stable-baselines3 wandb river
 **4. Place the building and weather files:**
 
 The required files are already in this repo:
-- `sinergym/data/buildings/greenhouse_triangle_CoolingCoil_Heater.epJSON`
+- `sinergym/data/buildings/greenhouse_triangle_refreg_cooling_heater.epJSON`
 - `sinergym/data/weather/QAT_DA_Doha.404280_TMYx.2007-2021.epw` (and Khor, Al Kiranah)
 
 ---
@@ -82,7 +82,7 @@ The experiment configuration file. Everything about the run is defined here — 
 | `evaluation` | How often to run evaluation episodes and how many |
 
 **Key env_params in this config:**
-- `building_file`: `greenhouse_triangle_CoolingCoil_Heater.epJSON` — a vapor-compression cooling + electric heating greenhouse model
+- `building_file`: `greenhouse_triangle_refreg_cooling_heater.epJSON` — a vapor-compression cooling + electric heating greenhouse model
 - `weather_files`: Three Qatar TMYx files (Doha, Khor, Al Kiranah) — rotated each episode for generalization
 - `reward`: `ComfortGatedReward` — a comfort-gated reward that suppresses energy penalties when the zone is outside the comfort band
 - `actuators`: four schedule actuators controlling heater fan availability, heater setpoint, cooler fan availability, and cooler setpoint
